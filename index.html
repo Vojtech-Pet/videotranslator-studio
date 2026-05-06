@@ -92,7 +92,7 @@ nav{display:flex;align-items:center;justify-content:space-between;gap:1rem;min-h
 
 .hero{padding:clamp(3rem,6vw,5.25rem) 0 clamp(2rem,4vw,3rem)}
 .hero-inner{
-  display:grid;grid-template-columns:1.15fr .85fr;
+  display:grid;grid-template-columns:1.1fr .9fr;
   align-items:center;gap:clamp(1rem,2vw,2rem);
 }
 .hero-left{max-width:640px;animation:fadeUp .6s ease both;padding-left:clamp(.5rem,1.5vw,1.25rem)}
@@ -108,30 +108,77 @@ nav{display:flex;align-items:center;justify-content:space-between;gap:1rem;min-h
   width:100%;display:flex;justify-content:flex-end;
 }
 
+/* ---- App mockup (realistic) ---- */
 .hero-mockup{
-  width:min(85%,440px);aspect-ratio:4/3;
-  border:2px solid rgba(30,58,138,.18);border-radius:20px;box-shadow:var(--shadow-md);
-  background:linear-gradient(135deg,#0e1117 0%,#1c232c 100%);
-  transform:rotate(1.5deg) translateY(4px);
-  display:flex;flex-direction:column;padding:1rem;gap:.5rem;
+  width:min(95%,540px);aspect-ratio:4/3.1;
+  border:1px solid rgba(30,58,138,.25);border-radius:14px;box-shadow:var(--shadow-md);
+  background:#0e1117;overflow:hidden;
+  transform:rotate(1deg) translateY(4px);
+  display:flex;flex-direction:column;
   font-family:var(--font-display);
 }
-.hero-mockup .mockup-bar{display:flex;gap:6px;margin-bottom:.5rem}
-.hero-mockup .mockup-bar span{width:10px;height:10px;border-radius:50%;background:#444}
-.hero-mockup .mockup-bar span:first-child{background:#ff5f57}
-.hero-mockup .mockup-bar span:nth-child(2){background:#febc2e}
-.hero-mockup .mockup-bar span:nth-child(3){background:#28c840}
-.hero-mockup .mockup-step{
-  display:flex;align-items:center;gap:.65rem;color:#e6edf3;font-size:.85rem;
-  background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);
-  padding:.5rem .75rem;border-radius:10px;
+.app-titlebar{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 12px;background:#161b22;border-bottom:1px solid #30363d;
 }
-.hero-mockup .mockup-step .num{
-  width:22px;height:22px;border-radius:50%;
-  background:linear-gradient(135deg,#3B82F6,#38BDF8);color:#0e1117;
-  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.75rem;
+.app-titlebar .dot{width:10px;height:10px;border-radius:50%;background:#30363d}
+.app-titlebar .dot.red{background:#ff5f57}
+.app-titlebar .dot.yellow{background:#febc2e}
+.app-titlebar .dot.green{background:#28c840}
+.app-titlebar .ttl{font-size:.7rem;color:#8b949e;margin-left:auto;margin-right:auto;letter-spacing:.05em}
+.app-body{display:flex;flex:1;min-height:0}
+.app-sidebar{
+  width:38%;background:#0e1117;border-right:1px solid #30363d;
+  padding:10px 8px;display:flex;flex-direction:column;gap:1px;
 }
-.hero-mockup .mockup-step.active{background:rgba(56,189,248,.18);border-color:#38BDF8}
+.app-brand{padding:6px 8px 10px;border-bottom:1px solid #30363d;margin-bottom:8px}
+.brand-name{color:#e6edf3;font-weight:700;font-size:.78rem;line-height:1}
+.brand-sub{color:#8b949e;font-size:.62rem;margin-top:2px}
+.nav-label{color:#6e7681;font-size:.55rem;font-weight:700;letter-spacing:.12em;padding:4px 8px;margin-top:4px}
+.snav-item{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 8px;border-radius:5px;
+  color:#8b949e;font-size:.65rem;
+}
+.snav-item.active{background:#1c232c;color:#58a6ff;border-left:2px solid #2ea043;padding-left:6px}
+.snav-item .ic{font-size:.72rem;opacity:.85;width:14px;display:inline-block}
+.app-content{
+  flex:1;padding:10px 12px;background:#161b22;
+  display:flex;flex-direction:column;gap:8px;overflow:hidden;
+}
+.wizard{display:flex;justify-content:space-between;gap:4px;padding:4px 0 8px;border-bottom:1px solid #30363d}
+.wiz-step{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
+.wiz-num{
+  width:18px;height:18px;border-radius:50%;
+  background:#30363d;color:#8b949e;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.6rem;font-weight:700;
+}
+.wiz-step.active .wiz-num{background:#2ea043;color:#fff}
+.wiz-label{color:#6e7681;font-size:.55rem;font-weight:600}
+.wiz-step.active .wiz-label{color:#e6edf3}
+.content-block{
+  background:#1c232c;border:1px solid #30363d;border-radius:6px;
+  padding:8px 10px;
+}
+.block-label{color:#8b949e;font-size:.55rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.dropzone{
+  border:1px dashed #30363d;border-radius:5px;
+  padding:14px 8px;text-align:center;
+  color:#6e7681;font-size:.62rem;
+}
+.dropzone .up{font-size:.95rem;display:block;margin-bottom:3px;color:#58a6ff}
+.row-controls{display:flex;gap:4px;flex-wrap:wrap}
+.chip{
+  background:#0e1117;border:1px solid #30363d;border-radius:4px;
+  padding:3px 7px;color:#8b949e;font-size:.55rem;
+}
+.chip.active{background:rgba(46,160,67,.15);color:#3fb950;border-color:#2ea043}
+.run-btn{
+  margin-top:auto;background:#2ea043;color:#fff;
+  padding:8px;border-radius:6px;text-align:center;
+  font-weight:700;font-size:.72rem;letter-spacing:.02em;
+}
 
 .btn-primary,.btn-secondary{
   display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
@@ -239,11 +286,46 @@ footer a:hover{color:var(--primary-dark)}
     </div>
     <div class="hero-right">
       <div class="hero-mockup">
-        <div class="mockup-bar"><span></span><span></span><span></span></div>
-        <div class="mockup-step active"><div class="num">1</div>STT — Whisper transcription</div>
-        <div class="mockup-step active"><div class="num">2</div>Preklad — Gemma 4 26B</div>
-        <div class="mockup-step active"><div class="num">3</div>TTS — OmniVoice</div>
-        <div class="mockup-step"><div class="num">4</div>Finalizácia — sync &amp; mux</div>
+        <div class="app-titlebar">
+          <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+          <span class="ttl">VideoTranslator Studio</span>
+        </div>
+        <div class="app-body">
+          <div class="app-sidebar">
+            <div class="app-brand">
+              <div class="brand-name">VideoTranslator</div>
+              <div class="brand-sub">Studio</div>
+            </div>
+            <div class="nav-label">NAVIGÁCIA</div>
+            <div class="snav-item active"><span class="ic">📁</span>Lokálny súbor</div>
+            <div class="snav-item"><span class="ic">⬇</span>Stiahnutie videa</div>
+            <div class="snav-item"><span class="ic">🔑</span>API kľúče</div>
+            <div class="snav-item"><span class="ic">🔧</span>Nástroje</div>
+            <div class="snav-item"><span class="ic">🎙</span>Narrátor</div>
+          </div>
+          <div class="app-content">
+            <div class="wizard">
+              <div class="wiz-step active"><div class="wiz-num">1</div><div class="wiz-label">STT</div></div>
+              <div class="wiz-step active"><div class="wiz-num">2</div><div class="wiz-label">Preklad</div></div>
+              <div class="wiz-step active"><div class="wiz-num">3</div><div class="wiz-label">TTS</div></div>
+              <div class="wiz-step"><div class="wiz-num">4</div><div class="wiz-label">Final</div></div>
+            </div>
+            <div class="content-block">
+              <div class="block-label">Vstupné súbory (batch)</div>
+              <div class="dropzone"><span class="up">▲</span>Presuň video sem · alebo klikni</div>
+            </div>
+            <div class="content-block">
+              <div class="block-label">Typ obsahu</div>
+              <div class="row-controls">
+                <span class="chip active">Všeobecný</span>
+                <span class="chip">Náučné</span>
+                <span class="chip">Technický</span>
+                <span class="chip">SQL/DB</span>
+              </div>
+            </div>
+            <div class="run-btn">▶ Spustiť preklad</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -262,7 +344,7 @@ footer a:hover{color:var(--primary-dark)}
       </div>
       <div class="twocol-block">
         <h3>Pre štúdiá a lokalizáciu</h3>
-        <p>Batch režim, checkpoint manager, vlastný hlas cez referenčnú .wav vzorku, multi-speaker diarizácia. Plne lokálne na RTX 4090.</p>
+        <p>Batch režim, checkpoint manager, vlastný hlas cez referenčnú .wav vzorku, multi-speaker podpora. Plne lokálne na RTX 4090.</p>
       </div>
     </div>
   </section>
@@ -311,7 +393,7 @@ footer a:hover{color:var(--primary-dark)}
       </div>
       <div class="hero-mini">
         <strong>3. TTS</strong>
-        <span>OmniVoice (zero-shot, primary), Chatterbox SK 2.2 (backup), F5+smart heuristika.</span>
+        <span>OmniVoice (zero-shot, primary) a Chatterbox SK 2.2 (backup). Žiadny SK fine-tune potrebný.</span>
       </div>
       <div class="hero-mini">
         <strong>4. Finalizácia</strong>
@@ -329,22 +411,17 @@ footer a:hover{color:var(--primary-dark)}
       <div class="section-kicker">TTS engines</div>
       <h2>Slovenský benchmark (Whisper QA)</h2>
     </div>
-    <div class="card-grid">
-      <article class="card">
+    <div class="twocol">
+      <div class="twocol-block">
         <div class="card-tag">Primary · 408</div>
         <h3>OmniVoice (zero-shot)</h3>
-        <p>k2-fsa, 600+ jazykov, žiadny SK fine-tune potrebný. Voice clone z 3-sekundovej referencie.</p>
-      </article>
-      <article class="card">
-        <div class="card-tag">Backup · 378</div>
-        <h3>F5-TTS v5_60K + smart</h3>
-        <p>Slovenský fine-tune + selektívna duration heuristika. +15 bodov nad baseline.</p>
-      </article>
-      <article class="card">
+        <p>k2-fsa, 600+ jazykov, žiadny SK fine-tune potrebný. Voice clone z 3-sekundovej referencie. Rýchla inferencia, vysoká kvalita.</p>
+      </div>
+      <div class="twocol-block">
         <div class="card-tag">Backup · 355</div>
         <h3>Chatterbox SK 2.2</h3>
-        <p>Slovenský fine-tune s prosody vrstvami: pause map, pitch contour, energy contour per-chunk.</p>
-      </article>
+        <p>Slovenský fine-tune s prosody vrstvami: pause map, pitch contour, energy contour per-chunk, per-chunk style embedding.</p>
+      </div>
     </div>
   </section>
 
