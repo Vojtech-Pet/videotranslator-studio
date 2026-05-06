@@ -1,47 +1,385 @@
 <!DOCTYPE html>
 <html lang="sk">
 <head>
-  <meta charset="UTF-8">
-  <title>VideoTranslator Studio</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 60px auto; padding: 0 20px; line-height: 1.6; color: #222; }
-    h1 { color: #1a73e8; margin-bottom: 0; }
-    .tag { color: #666; font-size: 0.95em; }
-    h2 { border-bottom: 1px solid #eee; padding-bottom: 6px; margin-top: 32px; }
-    code { background: #f4f4f4; padding: 2px 6px; border-radius: 4px; }
-    .features { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .features div { background: #f9f9f9; padding: 14px 18px; border-radius: 8px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="VideoTranslator Studio — automatický EN→SK video-dubbing pipeline.">
+<title>VideoTranslator Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --container:1120px;
+  --bg:#F9FAFB;--surface:#F9FAFB;
+  --ink:#1F2937;--muted:rgba(31,41,55,.7);--line:rgba(31,41,55,.12);
+  --primary:#1E3A8A;--secondary:#3B82F6;--accent:#38BDF8;--accent-2:#3B82F6;--primary-dark:#1E3A8A;
+  --shadow-sm:0 10px 22px rgba(30,58,138,.12);
+  --shadow-md:0 22px 60px rgba(30,58,138,.18);
+  --radius:16px;--radius-lg:24px;
+  --font-display:"Space Grotesk","Helvetica Neue",sans-serif;
+  --font-body:"DM Sans","Helvetica Neue",sans-serif;
+}
+html{background:var(--bg);color:var(--ink);font-family:var(--font-body);scroll-behavior:smooth}
+html,body{font-size:100%}
+body{
+  background:linear-gradient(to bottom,#FFFFFF 0%,#E0F2FE 30%,#38BDF8 60%);
+  color:var(--ink);font-family:var(--font-body);font-weight:400;line-height:1.6;
+  position:relative;font-size:1rem;width:100%;min-height:100vh;
+}
+body::before{
+  content:"";position:fixed;inset:0;
+  background-image:radial-gradient(rgba(31,41,55,.08) .7px,transparent .7px);
+  background-size:18px 18px;opacity:.35;pointer-events:none;z-index:0;
+}
+body>*{position:relative;z-index:1}
+h1,h2,h3{font-family:var(--font-display);line-height:1.1;letter-spacing:-0.02em}
+h1{font-size:clamp(2.3rem,4vw,3.4rem)}
+h2{font-size:clamp(1.6rem,2.6vw,2.3rem)}
+h3{font-size:1.15rem}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+p{margin-top:.65rem}
+
+.container{width:min(var(--container),calc(100% - 2rem));margin-inline:auto}
+.wrapper{min-height:100vh;display:flex;flex-direction:column}
+
+.section{
+  padding:clamp(1.75rem,3.5vw,2.75rem);
+  margin-top:clamp(1.5rem,3vw,2.5rem);
+  border-radius:var(--radius-lg);background:var(--surface);
+  border:1px solid var(--line);box-shadow:var(--shadow-sm);
+  animation:fadeUp .6s ease both;
+}
+.wrapper>.container:first-of-type .section:first-of-type{margin-top:0}
+.section-header{max-width:760px;margin-bottom:1.5rem;text-align:left}
+.section-header h2{margin:0 0 .65rem}
+.section-kicker{
+  display:inline-flex;align-items:center;gap:.5rem;
+  font-size:.85rem;font-weight:700;color:var(--muted);
+  letter-spacing:.18em;text-transform:uppercase;margin-bottom:.75rem;
+}
+.section-kicker::before{content:"";width:32px;height:2px;border-radius:999px;background:var(--accent)}
+
+#header,header{
+  position:sticky;top:0;width:100%;z-index:30;
+  background:rgba(249,250,251,.88);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);box-shadow:0 10px 30px rgba(30,58,138,.12);
+}
+.nav-container{width:min(var(--container),calc(100% - 2rem));margin-inline:auto}
+nav{display:flex;align-items:center;justify-content:space-between;gap:1rem;min-height:60px}
+.nav-left,.nav-right{display:flex;align-items:center;gap:.65rem}
+.logo-mark{
+  width:36px;height:36px;border-radius:10px;
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;
+  font-family:var(--font-display);font-size:1.1rem;
+}
+.nav-title{letter-spacing:-.03em;font-size:1.4rem;font-weight:700;font-family:var(--font-display)}
+.nav-right{justify-content:flex-end;gap:.75rem}
+.nav-cta{
+  display:inline-flex;align-items:center;padding:.55rem 1rem;border-radius:999px;
+  background:var(--accent);color:var(--ink);font-weight:700;box-shadow:var(--shadow-sm);
+  transition:transform .2s,background .2s,box-shadow .2s;
+}
+.nav-cta:hover{transform:translateY(-1px);background:var(--accent-2);color:#fff;box-shadow:var(--shadow-md)}
+.nav-link{
+  display:inline-flex;align-items:center;padding:.5rem .9rem;border-radius:999px;
+  font-weight:600;color:var(--muted);transition:background .2s,color .2s;
+}
+.nav-link:hover{background:rgba(30,58,138,.12);color:var(--ink)}
+
+.hero{padding:clamp(3rem,6vw,5.25rem) 0 clamp(2rem,4vw,3rem)}
+.hero-inner{
+  display:grid;grid-template-columns:1.15fr .85fr;
+  align-items:center;gap:clamp(1rem,2vw,2rem);
+}
+.hero-left{max-width:640px;animation:fadeUp .6s ease both;padding-left:clamp(.5rem,1.5vw,1.25rem)}
+.hero h1{margin-bottom:1rem}
+.hero-gradient{
+  background:linear-gradient(90deg,var(--primary),var(--accent));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero p{font-size:1.05rem;max-width:62ch;color:var(--muted);margin-top:0}
+.hero-actions{display:flex;flex-wrap:wrap;gap:.75rem;margin:1.5rem 0 .5rem}
+.hero-right{
+  animation:fadeUp .6s ease both;animation-delay:.1s;
+  width:100%;display:flex;justify-content:flex-end;
+}
+
+.hero-mockup{
+  width:min(85%,440px);aspect-ratio:4/3;
+  border:2px solid rgba(30,58,138,.18);border-radius:20px;box-shadow:var(--shadow-md);
+  background:linear-gradient(135deg,#0e1117 0%,#1c232c 100%);
+  transform:rotate(1.5deg) translateY(4px);
+  display:flex;flex-direction:column;padding:1rem;gap:.5rem;
+  font-family:var(--font-display);
+}
+.hero-mockup .mockup-bar{display:flex;gap:6px;margin-bottom:.5rem}
+.hero-mockup .mockup-bar span{width:10px;height:10px;border-radius:50%;background:#444}
+.hero-mockup .mockup-bar span:first-child{background:#ff5f57}
+.hero-mockup .mockup-bar span:nth-child(2){background:#febc2e}
+.hero-mockup .mockup-bar span:nth-child(3){background:#28c840}
+.hero-mockup .mockup-step{
+  display:flex;align-items:center;gap:.65rem;color:#e6edf3;font-size:.85rem;
+  background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);
+  padding:.5rem .75rem;border-radius:10px;
+}
+.hero-mockup .mockup-step .num{
+  width:22px;height:22px;border-radius:50%;
+  background:linear-gradient(135deg,#3B82F6,#38BDF8);color:#0e1117;
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.75rem;
+}
+.hero-mockup .mockup-step.active{background:rgba(56,189,248,.18);border-color:#38BDF8}
+
+.btn-primary,.btn-secondary{
+  display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  padding:.8rem 1.1rem;border-radius:999px;font-weight:800;font-size:.95rem;
+  border:1px solid transparent;transition:transform .05s,box-shadow .15s,background .15s,border-color .15s;
+}
+.btn-primary{background:var(--primary);color:var(--bg);box-shadow:0 16px 30px rgba(30,58,138,.22)}
+.btn-primary:hover{background:var(--secondary)}
+.btn-secondary{background:var(--surface);border-color:var(--line);color:var(--ink);box-shadow:var(--shadow-sm)}
+.btn-secondary:hover{border-color:rgba(30,58,138,.3);box-shadow:var(--shadow-md)}
+.btn-primary:active,.btn-secondary:active{transform:translateY(1px)}
+
+.steps-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}
+.hero-mini{
+  position:relative;padding:1.2rem 1.2rem 1.3rem;
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);
+  box-shadow:var(--shadow-sm);overflow:hidden;
+  transition:transform .15s,box-shadow .15s,border-color .15s;
+}
+.hero-mini:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:rgba(30,58,138,.28)}
+.section-altcards .hero-mini,.section-altcards .twocol-block{
+  border:1px solid rgba(30,58,138,.18);
+  background:linear-gradient(135deg,rgba(56,189,248,.16),rgba(59,130,246,.05));
+}
+.hero-mini strong{display:block;margin-bottom:.35rem;color:var(--ink)}
+.hero-mini span{display:block;color:var(--muted);font-size:.95rem}
+
+.card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.1rem}
+.card{
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);
+  box-shadow:var(--shadow-sm);padding:1.2rem 1.2rem 1.3rem;
+  transition:transform .15s,box-shadow .15s,border-color .15s;
+}
+.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:rgba(30,58,138,.28)}
+.card-tag{
+  display:inline-flex;align-items:center;font-size:.78rem;font-weight:900;
+  letter-spacing:.04em;text-transform:uppercase;color:var(--primary);
+  background:rgba(56,189,248,.18);border:1px solid rgba(56,189,248,.4);
+  padding:.3rem .55rem;border-radius:999px;margin-bottom:.75rem;
+}
+.card h3{margin-bottom:.5rem}
+
+.twocol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.1rem}
+.twocol-block{
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);
+  box-shadow:var(--shadow-sm);padding:1.2rem 1.2rem 1.3rem;
+  transition:transform .15s,box-shadow .15s,border-color .15s;
+}
+.twocol-block:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:rgba(30,58,138,.28)}
+.twocol-block h3{margin-bottom:.5rem}
+
+footer{margin-top:clamp(2rem,4vw,3rem);border-top:1px solid var(--line);background:transparent;text-align:center}
+footer a{color:var(--primary);font-weight:600}
+footer a:hover{color:var(--primary-dark)}
+.footer-inner{padding:1.5rem 0;color:var(--muted);font-size:.95rem;display:flex;align-items:center;justify-content:center;gap:.75rem;flex-wrap:wrap}
+
+@media (max-width:980px){
+  .hero-inner{grid-template-columns:1fr}
+  .hero-right{justify-self:center;justify-content:center}
+  .card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .steps-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:620px){
+  nav{flex-direction:column;align-items:flex-start}
+  .nav-right{width:100%;justify-content:flex-start}
+  .card-grid,.twocol,.steps-grid{grid-template-columns:1fr}
+  .hero-actions{flex-direction:column;align-items:stretch}
+  .footer-inner{justify-content:center;text-align:center}
+}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
 </head>
+
 <body>
-  <h1>VideoTranslator Studio</h1>
-  <p class="tag">EN → SK automatický video-dubbing pipeline. STT · Preklad · TTS · Assembly.</p>
+<div class="wrapper" id="top">
 
-  <h2>Funkcie</h2>
-  <div class="features">
-    <div><strong>📁 Lokálny súbor</strong><br>Preklad z MP4/MKV/AVI s 4-krokovým wizardom (STT → Preklad → TTS → Finalizácia).</div>
-    <div><strong>⬇️ Stiahnutie videa</strong><br>YouTube, Vimeo, TikTok, X/Twitter, Facebook a 1000+ ďalších cez yt-dlp.</div>
-    <div><strong>🎙 Narrátor</strong><br>Text-to-speech s referenčným hlasom a štýl-instructom (OmniVoice / Chatterbox).</div>
-    <div><strong>🔧 Nástroje</strong><br>EQ, QC analýza, tréning vlastných modelov, správa API kľúčov.</div>
+<header id="header">
+  <div class="container nav-container">
+    <nav>
+      <div class="nav-left">
+        <div class="logo-mark">V</div>
+        <div class="nav-title">VideoTranslator Studio</div>
+      </div>
+      <div class="nav-right">
+        <a class="nav-link" href="#top">Domov</a>
+        <a class="nav-link" href="#funkcie">Funkcie</a>
+        <a class="nav-link" href="#pipeline">Pipeline</a>
+        <a class="nav-cta" href="https://github.com/Vojtech-Pet/videotranslator-studio">GitHub</a>
+      </div>
+    </nav>
   </div>
+</header>
 
-  <h2>Pipeline</h2>
-  <ol>
-    <li><strong>STT</strong> — Faster-Whisper large-v3-turbo, context-aware</li>
-    <li><strong>Preklad</strong> — Gemma 4 26B fine-tuned (SK), sliding-window batching</li>
-    <li><strong>Text adaptácia</strong> — slot-aware rewrite, adaptívna CPS kalibrácia</li>
-    <li><strong>TTS</strong> — OmniVoice (primary, zero-shot 600+ jazykov) alebo Chatterbox SK 2.2</li>
-    <li><strong>Assembly</strong> — preserve gaps, sync-safe timeline</li>
-  </ol>
+<section class="hero">
+  <div class="container hero-inner">
+    <div class="hero-left">
+      <h1>Z videa do slovenčiny <span class="hero-gradient">automaticky</span> za pár minút.</h1>
+      <p>Automatický video-dubbing pipeline. Whisper STT → Gemma preklad → OmniVoice TTS → finálna A/V montáž. Všetko lokálne, bez cloudu.</p>
+      <div class="hero-actions">
+        <a href="https://github.com/Vojtech-Pet/videotranslator-studio" class="btn-primary">Vyskúšať na GitHube</a>
+        <a href="#funkcie" class="btn-secondary">Pozri funkcie</a>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="hero-mockup">
+        <div class="mockup-bar"><span></span><span></span><span></span></div>
+        <div class="mockup-step active"><div class="num">1</div>STT — Whisper transcription</div>
+        <div class="mockup-step active"><div class="num">2</div>Preklad — Gemma 4 26B</div>
+        <div class="mockup-step active"><div class="num">3</div>TTS — OmniVoice</div>
+        <div class="mockup-step"><div class="num">4</div>Finalizácia — sync &amp; mux</div>
+      </div>
+    </div>
+  </div>
+</section>
 
-  <h2>Hardware</h2>
-  <p>Optimalizované pre RTX 4090 (24 GB VRAM), Linux, Python 3.10/3.11 cez miniforge3.</p>
+<div class="container">
 
-  <h2>Stav projektu</h2>
-  <p>Verzia 2.0 (Qt6). Aktívny vývoj. Produkčné nasadenie pre EN→SK dubbing.</p>
+  <section class="section section-altcards">
+    <div class="section-header">
+      <div class="section-kicker">Pre koho je nástroj určený</div>
+    </div>
+    <div class="twocol">
+      <div class="twocol-block">
+        <h3>Pre tvorcov obsahu</h3>
+        <p>Stiahneš YouTube/Vimeo/TikTok video, klikneš Spustiť preklad — o pár minút máš slovenský dabing pripravený na publikovanie.</p>
+      </div>
+      <div class="twocol-block">
+        <h3>Pre štúdiá a lokalizáciu</h3>
+        <p>Batch režim, checkpoint manager, vlastný hlas cez referenčnú .wav vzorku, multi-speaker diarizácia. Plne lokálne na RTX 4090.</p>
+      </div>
+    </div>
+  </section>
 
-  <hr>
-  <p class="tag">© 2026 Vojtech Petrik · pekiskol@gmail.com</p>
+  <section class="section" id="funkcie">
+    <div class="section-header">
+      <div class="section-kicker">Štyri hlavné moduly</div>
+      <h2>Všetko v jednom Qt6 GUI</h2>
+    </div>
+    <div class="card-grid">
+      <article class="card">
+        <div class="card-tag">Lokálny súbor</div>
+        <h3>Preklad MP4 / MKV / AVI</h3>
+        <p>4-krokový wizard: STT → Preklad → TTS → Finalizácia. Batch režim, checkpoint manager, výber engineu a kvality.</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">Stiahnutie videa</div>
+        <h3>YouTube, Vimeo, TikTok…</h3>
+        <p>1000+ podporovaných služieb cez yt-dlp. Výber kvality, formátu, celý playlist, podpora prihlásených stránok cez cookies.</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">Narrátor</div>
+        <h3>Text-to-speech s vlastným hlasom</h3>
+        <p>Vlož text, vyber referenčný hlas (.wav), nastav tempo a štýl-instruct (gender, vek, pitch, accent). Získaš prirodzenú narráciu.</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">Nástroje</div>
+        <h3>EQ, QC analýza, Tréning</h3>
+        <p>Audio mastering, kontrola kvality, tréning vlastných LoRA modelov, správa API kľúčov, checkpoint manager.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section section-altcards" id="pipeline">
+    <div class="section-header">
+      <div class="section-kicker">Ako to celé funguje</div>
+    </div>
+    <div class="steps-grid">
+      <div class="hero-mini">
+        <strong>1. STT</strong>
+        <span>Faster-Whisper large-v3-turbo s context-aware transcription a hallucination guards.</span>
+      </div>
+      <div class="hero-mini">
+        <strong>2. Preklad</strong>
+        <span>Gemma 4 26B fine-tuned EN→SK, sliding-window batching, glossary memory.</span>
+      </div>
+      <div class="hero-mini">
+        <strong>3. TTS</strong>
+        <span>OmniVoice (zero-shot, primary), Chatterbox SK 2.2 (backup), F5+smart heuristika.</span>
+      </div>
+      <div class="hero-mini">
+        <strong>4. Finalizácia</strong>
+        <span>Preserve gaps default, sync-safe timeline, optional gap compression, ffmpeg mux.</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="container">
+
+  <section class="section" id="tts">
+    <div class="section-header">
+      <div class="section-kicker">TTS engines</div>
+      <h2>Slovenský benchmark (Whisper QA)</h2>
+    </div>
+    <div class="card-grid">
+      <article class="card">
+        <div class="card-tag">Primary · 408</div>
+        <h3>OmniVoice (zero-shot)</h3>
+        <p>k2-fsa, 600+ jazykov, žiadny SK fine-tune potrebný. Voice clone z 3-sekundovej referencie.</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">Backup · 378</div>
+        <h3>F5-TTS v5_60K + smart</h3>
+        <p>Slovenský fine-tune + selektívna duration heuristika. +15 bodov nad baseline.</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">Backup · 355</div>
+        <h3>Chatterbox SK 2.2</h3>
+        <p>Slovenský fine-tune s prosody vrstvami: pause map, pitch contour, energy contour per-chunk.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="stack">
+    <div class="section-header">
+      <div class="section-kicker">Technology stack</div>
+      <h2>Plne lokálne, žiadny cloud</h2>
+    </div>
+    <div class="card-grid">
+      <article class="card">
+        <div class="card-tag">Inference</div>
+        <h3>LM Studio + Ollama + llama.cpp</h3>
+        <p>Gemma 4 26B A4B Q6_K (default), MADLAD, NLLB, MultiSlav, voliteľné API: GPT-5, Grok, Gemini.</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">Hardware</div>
+        <h3>RTX 4090 · 24 GB VRAM</h3>
+        <p>Optimalizované pre RTX 4090. Adaptívne unloading modelov medzi STT/translate/TTS fázami.</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">Software</div>
+        <h3>PyQt6 · Python 3.10/3.11</h3>
+        <p>Linux, miniforge3 conda envs. Faster-Whisper, ffmpeg, librosa, transformers, unsloth.</p>
+      </article>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="container footer-inner">
+    <span>© 2026 Vojtech Petrik · VideoTranslator Studio · <a href="https://github.com/Vojtech-Pet/videotranslator-studio">GitHub</a></span>
+  </div>
+</footer>
+
+</div>
 </body>
 </html>
