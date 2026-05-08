@@ -45,9 +45,10 @@ __pycache__/
 *.bak
 *.bak_*
 
-# Audio samples (local-only, don't commit large binaries)
-audio/*.mp3
+# Audio samples — allow short demo MP3s served by GitHub Pages.
+# Block only WAV (large) and any other heavy formats.
 audio/*.wav
+audio/*.flac
 
 # Memory (Claude auto-memory)
 memory/
