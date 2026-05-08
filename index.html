@@ -129,6 +129,13 @@ nav{display:flex;align-items:center;justify-content:space-between;gap:1rem;min-h
   width:100%;display:flex;justify-content:flex-end;
 }
 
+/* ---- Demo video (responsive 16:9) ---- */
+.video-wrap{
+  position:relative;width:100%;aspect-ratio:16/9;
+  border-radius:var(--radius);overflow:hidden;
+  box-shadow:var(--shadow-md);background:#000;
+}
+.video-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 /* ---- Hero screenshot (real GUI) ---- */
 .hero-screenshot-link{
   display:block;width:min(100%,560px);
@@ -298,6 +305,7 @@ footer a:hover{color:var(--primary-dark)}
       </div>
       <div class="nav-right">
         <a class="nav-link" href="#top">Domov</a>
+        <a class="nav-link" href="#demo">Demo</a>
         <a class="nav-link" href="#funkcie">Funkcie</a>
         <a class="nav-link" href="#pipeline">Pipeline</a>
         <a class="nav-cta" href="https://github.com/Vojtech-Pet/videotranslator-studio">GitHub</a>
@@ -325,6 +333,20 @@ footer a:hover{color:var(--primary-dark)}
 </section>
 
 <div class="container">
+
+  <section class="section" id="demo">
+    <div class="section-header">
+      <div class="section-kicker">Live demo</div>
+      <h2>40-sekundová ukážka EN→SK</h2>
+      <p style="margin-top:.5rem;color:var(--muted)">TED Talk od Tima Urbana preložený a nadabovaný plne lokálne — Whisper STT → Gemma 4 26B → OmniVoice TTS. Vľavo hore vidíš pôvodný EN klip, hlavné video je AI dabing v slovenčine.</p>
+    </div>
+    <div class="video-wrap">
+      <iframe src="https://www.youtube.com/embed/5vtH4yhjy1w" title="VideoTranslator Studio — TED Talk EN→SK demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe>
+    </div>
+    <p style="margin-top:1rem;font-size:.9rem;color:var(--muted)">
+      Originál: <a href="https://www.youtube.com/watch?v=arj7oStGLkU" style="color:var(--primary);font-weight:600">"Inside the Mind of a Master Procrastinator"</a> · Tim Urban / TED · CC-BY-NC-ND
+    </p>
+  </section>
 
   <section class="section section-altcards">
     <div class="section-header">
