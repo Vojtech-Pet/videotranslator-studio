@@ -720,6 +720,10 @@ class AppSettings:
     ov_instruct: str = ""
     ov_speed: float = 1.10
     ov_expressive: bool = False
+    # Multi-voice: pri detekcii viacerých speakerov vyrobí per-speaker SK ref
+    # cez Chatterbox + použije per-segment v OmniVoice batch
+    ov_multi_voice: bool = False
+    ov_multi_voice_n: int = 0  # 0 = auto-detect, >0 = explicit speaker count
     openai_api_key: str = ""
     openai_translate_model: str = "gpt-5-mini-2025-08-07"
     openai_tts_model: str = "gpt-4o-mini-tts"
@@ -1335,6 +1339,25 @@ class StudioWindow(QMainWindow):
         ctl.addStretch()
         lay.addWidget(grp_ct)
 
+        # ── Existujúce titulky (SRT) — preskočí STT + translation ───────────
+        grp_srt = self._tr_grp("grp_srt", "Existujúce titulky (SRT) — preskočí STT + preklad")
+        srt_l = QHBoxLayout(grp_srt); srt_l.setSpacing(5)
+        self._srt_in = QLineEdit("")
+        self._srt_in.setPlaceholderText("Cesta k SRT (cieľový jazyk SK/CS — iba TTS, žiadny preklad)")
+        self._srt_in.setFixedHeight(26)
+        self._srt_in.editingFinished.connect(self._save_chk_state)
+        srt_l.addWidget(self._srt_in)
+        b_srt = QPushButton("…"); b_srt.setFixedSize(30, 30); b_srt.setStyleSheet(_pill_sm())
+        b_srt.clicked.connect(lambda: self._srt_in.setText(
+            QFileDialog.getOpenFileName(self, "Vyber SRT titulky", "",
+                                         "SRT (*.srt);;All (*)")[0] or self._srt_in.text()))
+        srt_l.addWidget(b_srt)
+        b_srt_clear = QPushButton("✕"); b_srt_clear.setFixedSize(28, 28); b_srt_clear.setStyleSheet(_pill_sm())
+        self._tr_tip(b_srt_clear, "tip_srt_clear", "Vymazať SRT — pipeline pôjde Whisper STT cestou")
+        b_srt_clear.clicked.connect(lambda: self._srt_in.setText(""))
+        srt_l.addWidget(b_srt_clear)
+        lay.addWidget(grp_srt)
+
         # ── TTS engine ───────────────────────────────────────────────────────
         grp_tts = self._tr_grp("grp_tts","TTS Engine")
         ttsl = QVBoxLayout(grp_tts); ttsl.setSpacing(5)
@@ -1530,6 +1553,17 @@ class StudioWindow(QMainWindow):
         # Accent transfer UI bola odstránená 2026-05-08 — nahradila ju kvalitnejšia
         # cesta cez Chatterbox-as-ref-generator v auto_clone_ref.py
         # (SK akcent zapečený v Chatterbox SK 2.2 modeli, OmniVoice klonuje z SK-flavored ref).
+
+        # ── Multi-voice (per-speaker cloning) ───────────────────────────
+        self._ov_multi_voice = self._tr_chk("ov_multi_voice",
+            "🎭 Multi-voice (per-speaker SK clone)")
+        self._ov_multi_voice.setChecked(bool(getattr(self.settings, "ov_multi_voice", False)))
+        self._tr_tip(self._ov_multi_voice, "tip_ov_multi_voice",
+                     "Diarizácia (Resemblyzer + KMeans) → per-speaker Chatterbox SK ref-gen → "
+                     "OmniVoice TTS s rôznym hlasom per speaker. Auto-zaškrtne sa pri detekcii "
+                     "multispeaker v Auto-detection.")
+        self._ov_multi_voice.toggled.connect(self._save_chk_state)
+        ov_l.addWidget(self._ov_multi_voice, 10, 0, 1, 3)
         # Show/hide widgets podľa timeline mode
         def _upd_manual_visible():
             mode = self._ov_timeline_mode.currentText()
@@ -2766,6 +2800,8 @@ class StudioWindow(QMainWindow):
             "ov_instruct": self._ov_instruct.currentText() if hasattr(self,"_ov_instruct") else getattr(self.settings, "ov_instruct", ""),
             "ov_speed": self._ov_speed.value() if hasattr(self,"_ov_speed") else getattr(self.settings, "ov_speed", 1.0),
             "ov_expressive": self._ov_expressive.isChecked() if hasattr(self,"_ov_expressive") else getattr(self.settings, "ov_expressive", False),
+            "ov_multi_voice": self._ov_multi_voice.isChecked() if hasattr(self,"_ov_multi_voice") else getattr(self.settings, "ov_multi_voice", False),
+            "srt_input": self._srt_in.text().strip() if hasattr(self, "_srt_in") else "",
         }
 
     def _apply_checkpoint_settings(self, settings: Optional[Dict[str, Any]]) -> None:
@@ -2845,6 +2881,12 @@ class StudioWindow(QMainWindow):
             self._ov_speed.setValue(float(settings["ov_speed"]))
         if "ov_expressive" in settings and hasattr(self, "_ov_expressive"):
             self._ov_expressive.setChecked(bool(settings["ov_expressive"]))
+        if "ov_multi_voice" in settings and hasattr(self, "_ov_multi_voice"):
+            self._ov_multi_voice.setChecked(bool(settings["ov_multi_voice"]))
+        if "srt_input" in settings and hasattr(self, "_srt_in"):
+            # SRT je per-video voľba — neukladáme ju trvalo, len ak user explicitne nastavil pre rerun
+            # Necháme prázdne pri reštarte (uživateľ ho znovu vyberie ak treba)
+            pass
         self._sync_clone_controls()
         self._save_chk_state()
 
@@ -3028,9 +3070,12 @@ class StudioWindow(QMainWindow):
         "VTS_NARRATOR_SCRIPT",
         str(Path(__file__).resolve().parent / "scripts" / "notes_to_audio_omnivoice.py"),
     )
+    # OmniVoice je nainštalovaný v f5tts_env (cez PATHS.python_omnivoice).
+    # python_fish (fish_env) NIE JE správny — fish_env nemá OmniVoice.
     _NARRATOR_PYTHON = os.environ.get(
         "VTS_NARRATOR_PYTHON",
-        str(PATHS.python_fish) if Path(PATHS.python_fish).exists() else "python3",
+        str(PATHS.python_omnivoice) if Path(PATHS.python_omnivoice).exists()
+        else (str(PATHS.python_fish) if Path(PATHS.python_fish).exists() else "python3"),
     )
     _NARRATOR_VOICES_DIR = os.environ.get(
         "VTS_NARRATOR_VOICES_DIR",
@@ -3135,6 +3180,19 @@ class StudioWindow(QMainWindow):
         self._narr_btn_stop.setStyleSheet(_pill(bg="#3d1a1a", hover="#5a2020", pressed="#7a2020", text=RED, r=8))
         self._narr_btn_stop.clicked.connect(self._narr_stop)
         btn_row.addWidget(self._narr_btn_stop)
+
+        # Po-úspešné akcie: prehrať / otvoriť priečinok
+        self._narr_btn_play = self._tr_btn("btn_narr_play", "▶  Prehrať")
+        self._narr_btn_play.setFixedHeight(34); self._narr_btn_play.setEnabled(False)
+        self._narr_btn_play.setStyleSheet(_pill(r=8))
+        self._narr_btn_play.clicked.connect(self._narr_play)
+        btn_row.addWidget(self._narr_btn_play)
+
+        self._narr_btn_open = self._tr_btn("btn_narr_open", "📂  Otvoriť priečinok")
+        self._narr_btn_open.setFixedHeight(34); self._narr_btn_open.setEnabled(False)
+        self._narr_btn_open.setStyleSheet(_pill(r=8))
+        self._narr_btn_open.clicked.connect(self._narr_open_dir)
+        btn_row.addWidget(self._narr_btn_open)
         lay.addLayout(btn_row)
 
         # ── Log ──────────────────────────────────────────────────────────────
@@ -3157,17 +3215,28 @@ class StudioWindow(QMainWindow):
         self._narr_voice.clear()
         for w in wavs:
             self._narr_voice.addItem(str(w))
-        # default: lubo_sk_studio.wav ak existuje
-        for i in range(self._narr_voice.count()):
-            t = self._narr_voice.itemText(i)
-            if t.endswith("/lubo_sk_studio.wav"):
-                self._narr_voice.setCurrentIndex(i); break
+        # Default voice priority (first existing): SK natives produkujú stabilnejšie
+        # output než video-clone WAV-y (clone-y majú trailing silence ktoré OmniVoice
+        # napodobí → "too_short" QC warning).
+        defaults = ["lubo_sk_studio.wav", "lubo_sk.wav", "juraj_sk_studio.wav",
+                    "juraj_sk.wav", "chatterbox_sk_narrative_studio.wav",
+                    "katka_sk.wav"]
+        for fav in defaults:
+            for i in range(self._narr_voice.count()):
+                t = self._narr_voice.itemText(i)
+                if t.endswith("/" + fav):
+                    self._narr_voice.setCurrentIndex(i)
+                    break
+            else:
+                continue
+            break
         if cur:
             idx = self._narr_voice.findText(cur)
             if idx >= 0: self._narr_voice.setCurrentIndex(idx)
 
     def _narr_log_add(self, msg: str):
-        self._narr_log.appendPlainText(msg.rstrip())
+        # _narr_log je QTextEdit (nie QPlainTextEdit) — používame append() namiesto appendPlainText()
+        self._narr_log.append(msg.rstrip())
         self._narr_log.verticalScrollBar().setValue(
             self._narr_log.verticalScrollBar().maximum())
 
@@ -3237,12 +3306,18 @@ class StudioWindow(QMainWindow):
         speed = float(self._narr_speed.value())
         instruct = self._narr_instruct.text().strip()
 
+        # Auto-load ref_text z cache alebo Whisper transcribe (kritické — bez správneho
+        # ref_text generuje OmniVoice nezmysly / fragmenty DEFAULT_REF_TEXT-u)
+        ref_text = self._narr_get_ref_text(ref_wav)
+
         cmd = [self._NARRATOR_PYTHON, self._NARRATOR_SCRIPT,
                 md_path, out_wav,
                 "--ref-wav", ref_wav,
                 "--speed", str(speed)]
         if instruct:
             cmd += ["--instruct", instruct]
+        if ref_text:
+            cmd += ["--ref-text", ref_text]
 
         self._narr_log.clear()
         self._narr_log_add(f"[CMD] {' '.join(cmd)}")
@@ -3295,7 +3370,96 @@ class StudioWindow(QMainWindow):
             self._narr_timer.stop()
             self._narr_log_add(f"[INFO] Hotovo (exit code {proc.returncode}).")
             self._narr_btn_run.setEnabled(True); self._narr_btn_stop.setEnabled(False)
+            # Po-úspešná akcia: zobraz output path + povol Play / Open
+            out_path = Path(self._narr_out.text().strip())
+            if proc.returncode == 0 and out_path.exists():
+                self._narr_log_add(f"[OUT] {out_path}")
+                self._narr_log_add(f"[OUT] {out_path.with_suffix('.mp3')}")
+                self._narr_btn_play.setEnabled(True)
+                self._narr_btn_open.setEnabled(True)
             self._narr_proc = None
+
+    def _narr_get_ref_text(self, ref_wav: str) -> str:
+        """Vráti správny ref_text pre dané ref_wav. Postupnosť:
+        1) cache: <ref_dir>/.ref_text_cache/<stem>.txt
+        2) cache: voices/.ref_text_cache/<stem>.txt (legacy)
+        3) Whisper transcribe (musetalk_env, lang=sk) + ulož do cache
+        """
+        if not ref_wav:
+            return ""
+        ref_path = Path(ref_wav).expanduser().resolve()
+        if not ref_path.exists():
+            return ""
+        # 1+2) cache
+        for cache_dir in (ref_path.parent / ".ref_text_cache",
+                          Path(self._NARRATOR_VOICES_DIR) / ".ref_text_cache"):
+            cache_file = cache_dir / f"{ref_path.stem}.txt"
+            if cache_file.exists():
+                txt = cache_file.read_text(encoding="utf-8").strip()
+                if txt:
+                    self._narr_log_add(f"[REF] ref_text cached: {txt[:80]}")
+                    return txt
+        # 3) Whisper transcribe — beží v musetalk_env (má faster-whisper)
+        self._narr_log_add(f"[REF] Whisper transcribe ref WAV: {ref_path.name}...")
+        try:
+            import subprocess as _sp
+            py_main = self._effective_tts_python() if hasattr(self, "_effective_tts_python") \
+                else "/mnt/tts_data/miniforge3/envs/musetalk_env/bin/python"
+            code = (
+                "import os\n"
+                "os.environ['LD_LIBRARY_PATH'] = "
+                "'/mnt/tts_data/miniforge3/envs/musetalk_env/lib/python3.10/site-packages/nvidia/cublas/lib:'"
+                " + '/mnt/tts_data/miniforge3/envs/musetalk_env/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:'"
+                " + os.environ.get('LD_LIBRARY_PATH', '')\n"
+                "from faster_whisper import WhisperModel\n"
+                "import torch\n"
+                "device = 'cuda' if torch.cuda.is_available() else 'cpu'\n"
+                "ct = 'int8' if device == 'cpu' else 'int8'\n"
+                f"m = WhisperModel('base', device=device, compute_type=ct)\n"
+                f"segs, _ = m.transcribe({str(ref_path)!r}, language='sk', beam_size=1)\n"
+                "print(' '.join(s.text.strip() for s in segs).strip())\n"
+            )
+            r = _sp.run([py_main, "-c", code], capture_output=True, text=True, timeout=120)
+            if r.returncode == 0:
+                txt = (r.stdout or "").strip().splitlines()[-1] if r.stdout else ""
+                if txt:
+                    # Save to cache
+                    cache_dir = ref_path.parent / ".ref_text_cache"
+                    cache_dir.mkdir(parents=True, exist_ok=True)
+                    (cache_dir / f"{ref_path.stem}.txt").write_text(txt, encoding="utf-8")
+                    self._narr_log_add(f"[REF] ref_text Whisper: {txt[:80]}")
+                    return txt
+            else:
+                self._narr_log_add(f"[REF] Whisper zlyhal: {(r.stderr or '')[-200:]}")
+        except Exception as e:
+            self._narr_log_add(f"[REF] Whisper exception: {e}")
+        return ""
+
+    def _narr_play(self):
+        """Prehrať vygenerované audio cez systémový default player (xdg-open)."""
+        out_path = Path(self._narr_out.text().strip())
+        if not out_path.exists():
+            self._narr_log_add(f"[CHYBA] Súbor nenájdený: {out_path}")
+            return
+        try:
+            import subprocess as _sp
+            _sp.Popen(["xdg-open", str(out_path)],
+                      stdout=_sp.DEVNULL, stderr=_sp.DEVNULL, start_new_session=True)
+            self._narr_log_add(f"[PLAY] {out_path.name}")
+        except Exception as e:
+            self._narr_log_add(f"[PLAY] zlyhalo ({e}) — použi: xdg-open {out_path}")
+
+    def _narr_open_dir(self):
+        """Otvor output priečinok v file manageri."""
+        out_path = Path(self._narr_out.text().strip())
+        target_dir = out_path.parent if out_path.parent.exists() else out_path
+        try:
+            import subprocess as _sp
+            _sp.Popen(["xdg-open", str(target_dir)],
+                      stdout=_sp.DEVNULL, stderr=_sp.DEVNULL, start_new_session=True)
+            self._narr_log_add(f"[OPEN] {target_dir}")
+        except Exception as e:
+            self._narr_log_add(f"[OPEN] zlyhalo ({e})")
 
     def _narr_stop(self):
         proc = getattr(self, "_narr_proc", None)
@@ -3499,6 +3663,22 @@ class StudioWindow(QMainWindow):
 
         # Accent ref/strength auto-detection odstránená — Chatterbox-as-ref-generator
         # v auto_clone_ref.py rieši SK akcent automaticky (Chatterbox SK 2.2 model).
+
+        # Multi-voice info: vždy zalogujeme detekciu, ale NEZAPNEME checkbox
+        # automaticky — užívateľ rozhodne či chce multi-voice použiť.
+        multi = bool(result.get("multispeaker"))
+        n_est = int(result.get("speaker_count_estimated") or 1)
+        peaks = result.get("peaks_hz", [])
+        if multi and n_est >= 2:
+            checkbox_status = ""
+            if hasattr(self, "_ov_multi_voice"):
+                checkbox_status = (" (multi-voice ZAPNUTÉ — bude použité)"
+                                   if self._ov_multi_voice.isChecked()
+                                   else " (multi-voice VYPNUTÉ — zaškrtni '🎭 Multi-voice' pre per-speaker clone)")
+            peaks_str = f", peaks: {peaks} Hz" if peaks else ""
+            self._log_add(f"[DETECT] Multispeaker: ~{n_est} speakerov{peaks_str}{checkbox_status}")
+        else:
+            self._log_add(f"[DETECT] Single speaker (multi-voice nie je potrebný)")
 
         # Auto-set Typ obsahu podľa Whisper sample + keyword analýzy
         ct_val = result.get("suggested_content_type", "")
@@ -4641,8 +4821,68 @@ class StudioWindow(QMainWindow):
                 self._log_add("[OLLAMA] Nebeží — fallback na llama.cpp (lokálny GGUF)")
         # Cleanup residuálnych súborov z predchádzajúceho behu (re-run safety)
         self._cleanup_pre_run(item.path)
+
+        # SRT shortcut: ak je v GUI nastavené existujúce SRT, preskočíme pipeline úplne
+        # (žiadny Whisper STT, žiadny preklad — iba TTS + master z SRT-derived segmentov)
+        srt_input = ""
+        if hasattr(self, "_srt_in"):
+            srt_input = (self._srt_in.text() or "").strip()
+        if srt_input:
+            srt_path = Path(srt_input)
+            if not srt_path.exists():
+                self._log_add(f"[SRT] Súbor neexistuje: {srt_path} — fallback na štandardný flow")
+                srt_input = ""
+            elif self._tts_is_omnivoice():
+                # SK SRT → priamo OmniVoice standalone bez pipeline
+                self._log_add(f"[SRT] Použijem existujúce titulky: {srt_path.name} (preskakujem STT + preklad)")
+                src = Path(item.path)
+                stem = src.stem
+                tgt = self._tgt_lang.currentText() or "sk"
+                seg_json = BASE_DIR / "temp" / stem / f"{stem}_{tgt}_segments.json"
+                seg_json.parent.mkdir(parents=True, exist_ok=True)
+                # Convert SRT → segments JSON
+                import subprocess as _sp
+                py = self._effective_tts_python()
+                conv_cmd = [py, str(BASE_DIR / "srt_to_segments.py"),
+                            str(srt_path),
+                            "--lang", tgt,
+                            "--video-stem", stem,
+                            "--out", str(seg_json)]
+                r = _sp.run(conv_cmd, capture_output=True, text=True, timeout=60)
+                if r.returncode != 0 or not seg_json.exists():
+                    self._log_add(f"[SRT] Konverzia zlyhala: {r.stderr[-300:]}")
+                    return
+                # Print log z konverzie (dôležité info: count, span)
+                for line in (r.stdout or "").splitlines():
+                    if line.strip() and ("parsed" in line or "total span" in line or "merged" in line):
+                        self._log_add(f"[SRT] {line.strip()}")
+                item.status = "processing"; self._refresh_batch()
+                self._current_batch_item = item
+                self._set_running(True)
+                # Spustiť priamo OmniVoice standalone (pipeline už nie je potrebný)
+                self._log_add(f"[SRT] ✓ Segments JSON: {seg_json.name} — spúšťam OmniVoice TTS")
+                self._run_omnivoice_standalone(seg_json, stem, tgt, src)
+                return
+            else:
+                # Chatterbox path s SRT → fallback na pipeline s --use_existing_segments
+                self._log_add(f"[SRT] Použijem existujúce titulky pre Chatterbox engine — pipeline s --use_existing_segments")
+                # Pre-konvertuj SRT do očakávaného JSON umiestnenia, pipeline ho použije
+                src = Path(item.path)
+                stem = src.stem
+                tgt = self._tgt_lang.currentText() or "sk"
+                seg_json = BASE_DIR / "temp" / stem / f"{stem}_{tgt}_segments.json"
+                seg_json.parent.mkdir(parents=True, exist_ok=True)
+                import subprocess as _sp
+                py = self._effective_tts_python()
+                _sp.run([py, str(BASE_DIR / "srt_to_segments.py"), str(srt_path),
+                         "--lang", tgt, "--video-stem", stem, "--out", str(seg_json)],
+                        capture_output=True, timeout=60)
+
         cmd, env = self._build_local_cmd(item.path)
         if not cmd: return
+        # SRT mode: pridaj --use_existing_segments aby pipeline preskočil STT + translate
+        if srt_input and "--use_existing_segments" not in cmd:
+            cmd.append("--use_existing_segments")
         item.status = "processing"; self._refresh_batch()
         self._current_batch_item = item
         self._runner = Runner(cmd, env)
@@ -4770,12 +5010,69 @@ class StudioWindow(QMainWindow):
             "batch": BASE_DIR / "test_omnivoice_batch.py",
             "align": BASE_DIR / "match_audio_dynamic.py",
             "master": BASE_DIR / "master_pro.py",
+            "diarize": BASE_DIR / "auto_diarize.py",
+            "multi_clone": BASE_DIR / "auto_clone_multi.py",
         }
         for name, p in scripts.items():
             if not p.exists():
+                # diarize/multi_clone sú voliteľné — chýbajú len ak multi-voice nie je k dispozícii
+                if name in ("diarize", "multi_clone"):
+                    continue
                 self._log_add(f"[OMNIVOICE] CHYBA: skript chýba {p}")
                 self._advance_batch(False)
                 return
+
+        # === Step 0 (optional): Multi-voice diarization + per-speaker refs ===
+        multi_voice_on = (hasattr(self, "_ov_multi_voice")
+                          and self._ov_multi_voice.isChecked()
+                          and scripts["diarize"].exists()
+                          and scripts["multi_clone"].exists())
+        speaker_refs_json = None
+        diarized_segments_json = segments_json  # default = original
+        if multi_voice_on:
+            self._log_add(f"[MULTI-VOICE] Diarization (Resemblyzer + KMeans)...")
+            diarized_path = segments_json.with_suffix(".diarized.json")
+            r = subprocess.run(
+                [py, str(scripts["diarize"]), str(src_video),
+                 "--segments", str(segments_json),
+                 "--out", str(diarized_path)],
+                capture_output=True, text=True, timeout=600,
+            )
+            if r.returncode == 0 and diarized_path.exists():
+                # Skontroluj koľko speakers diarizácia zistila
+                try:
+                    import json as _j
+                    _diar = _j.loads(diarized_path.read_text(encoding="utf-8"))
+                    _segs = _diar["segments"] if isinstance(_diar, dict) else _diar
+                    _spks = sorted(set(s.get("speaker_id", "SPEAKER_00") for s in _segs))
+                    self._log_add(f"[MULTI-VOICE] Detected {len(_spks)} speakers: {', '.join(_spks)}")
+                    if len(_spks) >= 2:
+                        # Per-speaker SK ref-gen
+                        self._log_add(f"[MULTI-VOICE] Generujem per-speaker SK refs (Chatterbox PRO config)...")
+                        refs_out_dir = VOICES_DIR / src_video.stem
+                        r2 = subprocess.run(
+                            [py, str(scripts["multi_clone"]), str(src_video),
+                             "--diarized", str(diarized_path),
+                             "--out-dir", str(refs_out_dir)],
+                            capture_output=True, text=True, timeout=1800,
+                        )
+                        speaker_refs_json = refs_out_dir / "_speaker_refs.json"
+                        if r2.returncode == 0 and speaker_refs_json.exists():
+                            self._log_add(f"[MULTI-VOICE] ✓ Per-speaker refs: {speaker_refs_json}")
+                            diarized_segments_json = diarized_path
+                        else:
+                            self._log_add(f"[MULTI-VOICE] multi-clone zlyhal: {(r2.stderr or '')[-300:]}")
+                            speaker_refs_json = None
+                            multi_voice_on = False
+                    else:
+                        self._log_add(f"[MULTI-VOICE] Single speaker detegovaný — fallback na single-ref flow")
+                        multi_voice_on = False
+                except Exception as e:
+                    self._log_add(f"[MULTI-VOICE] Diarized JSON parse zlyhal: {e}")
+                    multi_voice_on = False
+            else:
+                self._log_add(f"[MULTI-VOICE] Diarization zlyhala: {(r.stderr or '')[-300:]}")
+                multi_voice_on = False
 
         # === Step 1: Auto-clone ref z videa ===
         # Ak user explicitne vybral voice WAV v GUI, použi ten.
@@ -4799,18 +5096,22 @@ class StudioWindow(QMainWindow):
                 clone_ref = VOICES_DIR / "chatterbox_sk_greeting_studio.wav"
             ref_audio = str(clone_ref)
 
-        # === Step 2: Batch OmniVoice TTS ===
+        # === Step 2: Batch OmniVoice TTS (single-ref alebo multi-voice) ===
         chunks_dir = BASE_DIR / "work" / "tts_chunks_standalone" / stem
         chunks_dir.mkdir(parents=True, exist_ok=True)
         timeline_in = BASE_DIR / "temp" / stem / f"{stem}_{tgt}_raw.wav"
         timeline_in.parent.mkdir(parents=True, exist_ok=True)
         cmd = [py, str(scripts["batch"]),
-               "--segments", str(segments_json),
+               "--segments", str(diarized_segments_json),  # uses diarized if multi-voice on
                "--out", str(timeline_in),
                "--ref", ref_audio,
                "--chunks-dir", str(chunks_dir),
                "--keep-chunks"]
-        self._log_add(f"[OMNIVOICE] Batch TTS: {len(list(segments_json.read_text().split('text')))-1} segments...")
+        if multi_voice_on and speaker_refs_json and speaker_refs_json.exists():
+            cmd += ["--speaker-refs", str(speaker_refs_json)]
+            self._log_add(f"[OMNIVOICE] Batch TTS (MULTI-VOICE): per-speaker refs aktivované")
+        else:
+            self._log_add(f"[OMNIVOICE] Batch TTS: {len(list(segments_json.read_text().split('text')))-1} segments...")
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
         if r.returncode != 0 or not timeline_in.exists():
             self._log_add(f"[OMNIVOICE] Batch zlyhal: {r.stderr[-300:]}")
@@ -4904,6 +5205,9 @@ class StudioWindow(QMainWindow):
             item.status = "done"
             self._refresh_batch()
         self._persist_batch_state()
+        # Unfreeze GUI — Spustiť/Stop tlačidlá späť do normal mode
+        self._set_running(False)
+        self._progress.setValue(100)
         self._advance_batch(True)
 
     def _mux_video(self, src_path: str):
@@ -5084,6 +5388,9 @@ class StudioWindow(QMainWindow):
             self._log_add(f"[INFO] Pokračujem ďalším za 8 s (uvoľnenie VRAM): {Path(pending[0].path).name}")
             QTimer.singleShot(8000, self._on_start)
         else:
+            # Žiadne ďalšie pending → batch hotový. Unfreeze GUI (kritické pre SRT path,
+            # kde _run_omnivoice_standalone ide priamo bez Runner subprocess-u).
+            self._set_running(False)
             failed = [i for i in self.batch_items if i.status == "failed"]
             if failed:
                 self._log_add(f"[INFO] Batch dokončený s chybami: {len(failed)} zlyhaní")

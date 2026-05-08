@@ -101,7 +101,8 @@ DEFAULT_REPO = "k2-fsa/OmniVoice"
 DEFAULT_SEGMENTS = REPO_ROOT / "temp" / "2 Years of C++ Programming" / "2 Years of C++ Programming_sk_segments.json"
 DEFAULT_OUT_DIR = REPO_ROOT / "input" / "sk"
 
-# Subprocess runner — beží v f5tts_env, loaduje model raz, generuje všetky segmenty
+# Subprocess runner — beží v f5tts_env, loaduje model raz, generuje všetky segmenty.
+# Podporuje multi-voice cez per-segment ref_audios + ref_texts (parallel lists).
 RUNNER = r'''
 import json, sys, torch, soundfile as sf
 from pathlib import Path
@@ -110,21 +111,44 @@ from omnivoice.models.omnivoice import OmniVoiceGenerationConfig
 
 p = json.loads(sys.stdin.read())
 
-# Auto Whisper transcribe ref
-ref_audio = p["ref_audio"]
-ref_text = p.get("ref_text") or ""
-if not ref_text and ref_audio:
-    print(f"[REF] Whisper transcribe {ref_audio}...", flush=True)
+texts = p['texts']                 # list of strings
+N = len(texts)
+
+# Per-segment refs (multi-voice): if "ref_audios" present, use that list.
+# Else broadcast single "ref_audio" to all segments.
+if p.get("ref_audios"):
+    ref_audios = p["ref_audios"]   # list of paths, len=N
+    ref_texts = p.get("ref_texts") or [""] * N  # list, len=N
+    multi = True
+else:
+    ref_audios = [p["ref_audio"]] * N
+    ref_texts = [p.get("ref_text") or ""] * N
+    multi = False
+
+# Whisper auto-transcribe pre prázdne ref_text-y
+unique_refs_to_transcribe = sorted({(a, ref_texts[i]) for i, a in enumerate(ref_audios)
+                                     if a and not ref_texts[i]})
+if unique_refs_to_transcribe:
     try:
         from faster_whisper import WhisperModel
         wm = WhisperModel("base", device="cuda" if torch.cuda.is_available() else "cpu", compute_type="int8")
-        segs, _ = wm.transcribe(ref_audio, language=p.get("ref_lang", "sk"), beam_size=1)
-        ref_text = " ".join(s.text.strip() for s in segs).strip() or "Toto je vzor slovenského hlasu."
+        text_cache = {}
+        for ra, _ in unique_refs_to_transcribe:
+            print(f"[REF] Whisper transcribe {ra}...", flush=True)
+            try:
+                segs, _ = wm.transcribe(ra, language=p.get("ref_lang", "sk"), beam_size=1)
+                text_cache[ra] = " ".join(s.text.strip() for s in segs).strip() or "Toto je vzor slovenského hlasu."
+                print(f"[REF]   {text_cache[ra]!r}", flush=True)
+            except Exception as e:
+                print(f"[REF] {ra} Whisper failed: {e}", flush=True)
+                text_cache[ra] = "Toto je vzor slovenského hlasu."
         del wm
-        print(f"[REF] {ref_text!r}", flush=True)
+        # Apply transcribed text to all empty slots
+        for i in range(N):
+            if not ref_texts[i] and ref_audios[i] in text_cache:
+                ref_texts[i] = text_cache[ref_audios[i]]
     except Exception as e:
-        print(f"[REF] Whisper failed ({e}), použijem fallback ref_text", flush=True)
-        ref_text = "Toto je vzor slovenského hlasu."
+        print(f"[REF] Whisper batch zlyhal: {e}", flush=True)
 
 print(f"[OMNIVOICE] Loading {p['repo']}...", flush=True)
 model = OmniVoice.from_pretrained(p['repo'], device_map='cuda:0', dtype=torch.float16)
@@ -136,35 +160,42 @@ cfg = OmniVoiceGenerationConfig(
     postprocess_output=p.get('postprocess', False),
 )
 
-texts = p['texts']  # list of strings
 out_dir = Path(p['chunks_dir'])
 out_dir.mkdir(parents=True, exist_ok=True)
 
 import time
 t0 = time.time()
+unique_speakers_used = set()
 for i, text in enumerate(texts):
     if not text or not text.strip():
-        # Krátka tichá medzera ak segment prázdny
         import numpy as np
         sf.write(str(out_dir / f"chunk_{i:04d}.wav"), np.zeros(int(0.3*24000), dtype="float32"), 24000)
-        print(f"[{i+1}/{len(texts)}] EMPTY → silence", flush=True)
+        print(f"[{i+1}/{N}] EMPTY → silence", flush=True)
         continue
+    seg_ref = ref_audios[i]
+    seg_ref_text = ref_texts[i] or "Toto je vzor slovenského hlasu."
+    if multi:
+        unique_speakers_used.add(Path(seg_ref).stem)
     try:
         audio = model.generate(
             text=text, language=p['language'],
-            ref_audio=ref_audio, ref_text=ref_text,
+            ref_audio=seg_ref, ref_text=seg_ref_text,
             generation_config=cfg,
         )
         out_wav = out_dir / f"chunk_{i:04d}.wav"
         sf.write(str(out_wav), audio[0], 24000)
         dur = len(audio[0]) / 24000.0
-        print(f"[{i+1}/{len(texts)}] {dur:5.2f}s  {text[:60]!r}", flush=True)
+        speaker_tag = f" [{Path(seg_ref).stem}]" if multi else ""
+        print(f"[{i+1}/{N}]{speaker_tag} {dur:5.2f}s  {text[:60]!r}", flush=True)
     except Exception as e:
-        print(f"[{i+1}/{len(texts)}] FAILED: {e}", flush=True)
+        print(f"[{i+1}/{N}] FAILED: {e}", flush=True)
         import numpy as np
         sf.write(str(out_dir / f"chunk_{i:04d}.wav"), np.zeros(int(0.3*24000), dtype="float32"), 24000)
 
-print(f"[DONE] {len(texts)} segments in {time.time()-t0:.0f}s", flush=True)
+if multi:
+    print(f"[MULTI] Used {len(unique_speakers_used)} unique speaker refs: "
+          f"{sorted(unique_speakers_used)}", flush=True)
+print(f"[DONE] {N} segments in {time.time()-t0:.0f}s", flush=True)
 '''
 
 
@@ -184,6 +215,10 @@ def main():
     ap.add_argument("--python", default=DEFAULT_PY)
     ap.add_argument("--chunks-dir", default="/tmp/standalone_chunks", help="Kam ukladať jednotlivé chunky")
     ap.add_argument("--keep-chunks", action="store_true", help="Nemazať chunks po concat")
+    ap.add_argument("--speaker-refs", default="",
+                    help="JSON path s mappingom {speaker_id: ref_wav_path}. "
+                         "Ak je nastavené + segments majú speaker_id → multi-voice TTS. "
+                         "Inak: single-ref použitý pre všetky segmenty.")
     args = ap.parse_args()
 
     seg_path = Path(args.segments).expanduser().resolve()
@@ -215,33 +250,79 @@ def main():
         out_wav = DEFAULT_OUT_DIR / f"{stem}_STANDALONE.wav"
     out_wav.parent.mkdir(parents=True, exist_ok=True)
 
-    # Auto-load cached ref_text from voices/.ref_text_cache/<stem>.txt — pipeline ho
-    # generuje cez Whisper v main env. Ak fallback v f5tts_env failne, model dostane
-    # iný ref_text → iné tempo (940s vs 449s, vyriešené tým že load tu vopred).
-    ref_path = Path(args.ref).expanduser().resolve()
-    ref_text = args.ref_text
-    if not ref_text:
-        cache_path = ref_path.parent / ".ref_text_cache" / f"{ref_path.stem}.txt"
-        if cache_path.exists():
-            ref_text = cache_path.read_text(encoding="utf-8").strip()
-            print(f"   ref_text: cached from {cache_path.name}: {ref_text!r}")
+    # Multi-voice mode: --speaker-refs JSON + segments majú speaker_id
+    multi_voice = False
+    speaker_refs_map = {}
+    if args.speaker_refs:
+        spk_refs_path = Path(args.speaker_refs).expanduser().resolve()
+        if spk_refs_path.exists():
+            speaker_refs_map = json.loads(spk_refs_path.read_text(encoding="utf-8"))
+            # Sanity check: aspoň 1 segment má speaker_id
+            n_with_speaker = sum(1 for s in segs if s.get("speaker_id"))
+            if n_with_speaker > 0 and speaker_refs_map:
+                multi_voice = True
+                print(f"   MULTI-VOICE mode ON ({len(speaker_refs_map)} speakers, "
+                      f"{n_with_speaker}/{len(segs)} segments majú speaker_id)")
         else:
-            print(f"   ref_text: WARN no cache, fallback bude použitý")
+            print(f"   ⚠ speaker_refs JSON neexistuje: {spk_refs_path}")
 
-    payload = {
-        "texts": texts,
-        "chunks_dir": str(chunks_dir),
-        "repo": args.repo,
-        "ref_audio": str(ref_path),
-        "ref_text": ref_text,
-        "ref_lang": args.lang,
-        "language": args.lang,
-        "num_step": args.num_step,
-        "guidance_scale": args.guidance,
-        "postprocess": args.postprocess,
-    }
+    if multi_voice:
+        # Per-segment ref_audio + ref_text (parallel lists)
+        # Pre každý speaker_id pozri jeho ref WAV + cached ref_text
+        per_seg_ref_audios = []
+        per_seg_ref_texts = []
+        # Pre fallback (ak segment nemá speaker_id) použijeme prvého speakera v mape
+        default_ref = next(iter(speaker_refs_map.values()))
+        for s in segs:
+            spk = s.get("speaker_id") or ""
+            ref_path_seg = speaker_refs_map.get(spk, default_ref)
+            per_seg_ref_audios.append(ref_path_seg)
+            # Try load cached ref_text
+            rp = Path(ref_path_seg)
+            cache = rp.parent / ".ref_text_cache" / f"{rp.stem}.txt"
+            txt = cache.read_text(encoding="utf-8").strip() if cache.exists() else ""
+            per_seg_ref_texts.append(txt)
+        payload = {
+            "texts": texts,
+            "chunks_dir": str(chunks_dir),
+            "repo": args.repo,
+            "ref_audios": per_seg_ref_audios,    # multi-voice
+            "ref_texts": per_seg_ref_texts,      # multi-voice
+            "ref_lang": args.lang,
+            "language": args.lang,
+            "num_step": args.num_step,
+            "guidance_scale": args.guidance,
+            "postprocess": args.postprocess,
+        }
+        print(f"   refs:     {len(set(per_seg_ref_audios))} unique speaker WAVs")
+    else:
+        # Single-ref (existujúce správanie)
+        ref_path = Path(args.ref).expanduser().resolve()
+        ref_text = args.ref_text
+        if not ref_text:
+            cache_path = ref_path.parent / ".ref_text_cache" / f"{ref_path.stem}.txt"
+            if cache_path.exists():
+                ref_text = cache_path.read_text(encoding="utf-8").strip()
+                print(f"   ref_text: cached from {cache_path.name}: {ref_text!r}")
+            else:
+                print(f"   ref_text: WARN no cache, fallback bude použitý")
+        payload = {
+            "texts": texts,
+            "chunks_dir": str(chunks_dir),
+            "repo": args.repo,
+            "ref_audio": str(ref_path),
+            "ref_text": ref_text,
+            "ref_lang": args.lang,
+            "language": args.lang,
+            "num_step": args.num_step,
+            "guidance_scale": args.guidance,
+            "postprocess": args.postprocess,
+        }
 
-    print(f"   ref:      {payload['ref_audio']}")
+    if multi_voice:
+        print(f"   ref:      [multi-voice mode: {len(speaker_refs_map)} speakers]")
+    else:
+        print(f"   ref:      {payload['ref_audio']}")
     print(f"   out_wav:  {out_wav}")
     print(f"   chunks:   {chunks_dir}")
     print(f"   num_step: {args.num_step}")

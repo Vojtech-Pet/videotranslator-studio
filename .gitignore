@@ -31,13 +31,23 @@ data/
 output/
 temp/
 work/
-voices/*.wav
-voices/.ref_text_cache/
+voices/
 input/
 models/
 fish_speech/
 mini_level11/output/
+unsloth_compiled_cache/
+src/
+prompts/
 __pycache__/
+
+# Backup files
+*.bak
+*.bak_*
+
+# Audio samples (local-only, don't commit large binaries)
+audio/*.mp3
+audio/*.wav
 
 # Memory (Claude auto-memory)
 memory/
