@@ -1,0 +1,18 @@
+[Desktop Entry]
+Categories=Graphics;AudioVideo;
+Comment[sk_SK]=VideoTranslator Studio
+Comment=VideoTranslator Studio
+Exec=/mnt/tts_data/VideoTranslator_studio/launch_studio.sh
+GenericName[sk_SK]=
+GenericName=
+Icon=/home/vojtech/icon/ChatGPT Image 16. 2. 2026, 15_46_461.png
+MimeType=
+Name[sk_SK]=VideoTranslator Studio
+Name=VideoTranslator Studio
+Path=
+StartupNotify=true
+Terminal=false
+TerminalOptions=
+Type=Application
+X-KDE-SubstituteUID=false
+X-KDE-Username=

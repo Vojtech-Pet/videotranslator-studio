@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.pytest_cache/
+
+# Local config & secrets
+.env
+musetalk_gui_config.json
+scripts/musetalk_gui_config.json
+*.local.json
+.codex
+.claude/
+
+# Runtime state
+batch_checkpoint.json
+video_lists.json
+saved_checkpoints.json
+cps_calibration.json
+tts_*.meta.json
+*_segments.json
+*_tts_debug.json
+*_timing_audit.json
+*_tts_bad_segments.json
+*_speakers.json
+*_pre_tts_*.json
+
+# Large data dirs
+data/
+output/
+temp/
+work/
+voices/*.wav
+voices/.ref_text_cache/
+input/
+models/
+fish_speech/
+mini_level11/output/
+__pycache__/
+
+# Memory (Claude auto-memory)
+memory/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Portable env (conda-pack target — local-only, distribute via GitHub Releases)
+env/
+release/

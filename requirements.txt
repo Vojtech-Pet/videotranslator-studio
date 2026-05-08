@@ -1,0 +1,39 @@
+# VideoTranslator Studio — Python dependencies
+# Install: pip install -r requirements.txt
+
+# Core GUI
+PyQt6>=6.10
+PyQt6-Qt6>=6.10
+PyQt6-sip>=13.11
+
+# Video / audio
+faster-whisper>=1.2
+openai-whisper>=20240900
+pydub>=0.25
+soundfile>=0.13
+librosa>=0.11
+pyloudnorm>=0.2
+yt-dlp>=2024.12
+
+# ML / inference
+torch>=2.6
+transformers>=4.50
+accelerate>=1.0
+sentencepiece>=0.2
+
+# Local LLM (optional — for fully offline translation)
+llama-cpp-python>=0.3
+
+# TTS engines
+chatterbox-tts>=0.1.6
+demucs>=4.0
+
+# Translation APIs (optional)
+openai>=2.0
+requests>=2.32
+
+# Utilities
+numpy>=1.26
+scipy>=1.13
+tqdm>=4.66
+PyYAML>=6.0

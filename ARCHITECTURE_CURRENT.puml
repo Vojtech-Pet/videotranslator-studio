@@ -1,0 +1,160 @@
+@startuml
+title VideoTranslator_studio - Current Architecture (2026-04-10)
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam ArrowColor #4A5568
+skinparam NoteBackgroundColor #FFF8DC
+skinparam NoteBorderColor #D69E2E
+skinparam BackgroundColor white
+
+actor User
+
+package "GUI Layer" {
+  [VideoTranslator_studio.py] as GUI
+  [musetalk_gui_config.json] as GUICFG
+}
+
+package "Entry Layer" {
+  [main.py] as MAIN
+  [scripts/config.py] as CFG
+}
+
+package "Runtime Core" {
+  [scripts/pipeline.py] as PIPE
+}
+
+package "Processing Modules" {
+  [scripts/stt.py] as STT
+  [scripts/translation.py] as TR
+  [scripts/text_adaptation.py] as ADAPT
+  [scripts/tts.py] as TTS
+  [scripts/audio_pipeline.py] as AUDIO
+}
+
+package "Outputs" {
+  [segments.json] as SEGJSON
+  [wav_segments/] as WAVS
+  [final dubbed video] as FINAL
+  [SRT] as SRT
+}
+
+User --> GUI
+GUI --> GUICFG : load/save defaults
+GUI --> MAIN : build CLI args
+MAIN --> CFG
+MAIN --> PIPE
+
+PIPE --> STT
+PIPE --> TR
+PIPE --> ADAPT
+PIPE --> TTS
+PIPE --> AUDIO
+
+PIPE --> SEGJSON
+PIPE --> WAVS
+PIPE --> FINAL
+PIPE --> SRT
+
+note right of TR
+Current translation rules:
+- API path uses sliding-window SRT batching
+- previous translated context is included
+- term memory is included
+- no hard timing pressure in prompts
+- timing/CPS happens later in ADAPT
+end note
+
+note right of TTS
+Current voice routing:
+multi_voice
+ -> explicit custom WAV
+ -> emotion/original
+ -> global/default sample
+
+custom WAV + emotion
+ = style-only transfer
+ = keep custom identity
+ = source segment only modulates exag/cfg/temp
+end note
+
+note right of AUDIO
+Current sync rule:
+- preserve original timeline gaps by default
+- gap compression is optional only
+end note
+
+newpage
+title Translation Routing
+
+start
+:segments from STT;
+if (engine = API?) then (yes)
+  :build sliding-window batch SRT;
+  :attach previous translated context;
+  :attach terminology memory;
+  :use relaxed prompt;
+  note right
+  No "fit duration"
+  No "similar sentence length"
+  No early CPS pressure
+  end note
+else (no)
+  :route to local engine\nGoogle / MADLAD / Llama / TranslateGemma / others;
+endif
+:write text_src + translated text;
+:send to text_adaptation.py;
+stop
+
+newpage
+title Chatterbox Voice Routing
+
+start
+if (multi_voice local cue?) then (yes)
+  :use local cue ref;
+elseif (multi_voice speaker cluster?) then (yes)
+  :use clustered speaker ref;
+elseif (explicit custom WAV?) then (yes)
+  :use custom WAV as identity;
+  if (emotion enabled?) then (yes)
+    :analyze source segment energy/activity/dynamics;
+    :map to exag/cfg/temp;
+    note right
+    style-only transfer
+    no source voice cloning
+    end note
+  endif
+elseif (emotion enabled?) then (yes)
+  :extract per-segment source ref;
+  :use full clone prompt;
+else (no)
+  :use global/default voice sample;
+endif
+:generate WAV chunk;
+stop
+
+newpage
+title Sync-Safe Assembly
+
+start
+:segment WAV chunks ready;
+if (compress timeline gaps?) then (yes)
+  :collapse gaps intentionally;
+  note right
+  Higher sync risk
+  Faster/denser result
+  end note
+else (no)
+  :preserve original gaps;
+  note right
+  Default mode
+  Better A/V sync
+  end note
+endif
+:stretch only as needed;
+:mix music/backaudio if enabled;
+:export final WAV/MP4/SRT;
+stop
+
+@enduml
