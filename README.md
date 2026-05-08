@@ -86,6 +86,7 @@ Ak preferuješ Linux prostredie:
 | 📁 **Lokálny súbor** | 4-krokový wizard (STT → Preklad → TTS → Finalizácia), batch režim, checkpointy |
 | ⬇️ **Stiahnutie videa** | YouTube, Vimeo, TikTok, X/Twitter, Facebook + 1000+ ďalších cez yt-dlp |
 | 🎙️ **Narrátor** | Text-to-speech s referenčným hlasom, štýl-instruct (gender, vek, pitch, accent) |
+| 🔍 **Auto-detection** | Pitch analýza + Whisper sample + keyword regex → predvyplní hlas, voice design, typ obsahu, diffusion steps a guidance scale |
 | 🔧 **Nástroje** | Audio mastering, EQ presety, správa API kľúčov, checkpoint manager |
 
 ---
@@ -93,10 +94,30 @@ Ak preferuješ Linux prostredie:
 ## 🛠 Pipeline
 
 1. **STT** — Faster-Whisper large-v3-turbo s context-aware transcription
-2. **Preklad** — Gemma 4 26B fine-tuned (lokálne) / GPT-5 / Grok / Gemini (API)
+2. **Preklad** — Gemma 4 26B fine-tuned (lokálne) / GPT-5 / Grok / Gemini (API), s gender-aware prompt-om pre konzistentný rod cez celé video
 3. **Adaptácia** — slot-aware rewrite, adaptívna CPS kalibrácia
-4. **TTS** — OmniVoice (zero-shot, primary) alebo Chatterbox SK 2.2 (backup)
-5. **Assembly** — preserve gaps, sync-safe timeline, ffmpeg mux
+4. **TTS** — Chatterbox SK 2.2 (ref-generator) → OmniVoice (zero-shot, primary)
+5. **Assembly** — preserve gaps, sync-safe timeline, per-segment atempo, center-short placement, ffmpeg mux
+
+### 🎯 Voice cloning architecture v2 (2026-05-08)
+
+Pre dabovanie videí kde chceš zachovať identitu pôvodného speakera + natívny SK akcent:
+
+1. **Demucs** vyseparuje vokály z videa → `video_clone.wav` (americký prizvuk)
+2. **Chatterbox SK 2.2** (PRO config) vyrobí SK-flavored ref — SK akcent zapečený v modeli + video timbre cez audio_prompt
+3. **OmniVoice** klonuje z tejto ref → finálne TTS audio (SK akcent + identita pôvodného speakera + OmniVoice quality)
+4. **PRO Master** (open clarity EQ): bass body + de-nasal cut + presence + sparkle highs
+
+Auto-fallback: ak Chatterbox model chýba, OmniVoice použije raw video clone (americký prizvuk, ale pipeline funguje).
+
+### 🔍 Smart Auto-detection (jeden klik)
+
+Pred Spustiť stačí kliknúť tlačidlo *Detekuj hovoriaceho* v TTS Engine sekcii — analyzuje zdroj a predvyplní GUI:
+
+- **Pitch analýza** (librosa pyin na demucs vokáloch) → median F0, multispeaker, voice design preset (🇸🇰 muž / žena / multi-voice)
+- **Whisper sample 90 s** + keyword regex (EN + SK) → typ obsahu (general / programming / technical / sql / educational / podcast / review / news)
+- **Decision tree** pre OmniVoice params: tech content → 96 steps + 2.8 guidance, multispeaker → 96 + 3.0
+- **Speaker gender** sa propaguje cez celý preklad: do prompt-u, do refine pass-u (G3-12B), plus deterministický regex post-fix („som dokončil" → „som dokončila") pre konzistenciu cez celé video
 
 ---
 

@@ -371,9 +371,67 @@ footer a:hover{color:var(--primary-dark)}
         <p>Vlož text, vyber referenčný hlas (.wav), nastav tempo a štýl-instruct (gender, vek, pitch, accent). Získaš prirodzenú narráciu.</p>
       </article>
       <article class="card">
-        <div class="card-tag">Nástroje</div>
-        <h3>EQ, QC analýza, Tréning</h3>
-        <p>Audio mastering, kontrola kvality, tréning vlastných LoRA modelov, správa API kľúčov, checkpoint manager.</p>
+        <div class="card-tag">🔍 Auto-detection</div>
+        <h3>Jeden klik a všetko nastavené</h3>
+        <p>Tlačidlo <em>Detekuj hovoriaceho</em> spustí pitch analýzu (librosa) + Whisper sample 90 s + keyword regex. Predvyplní hlas, voice design, typ obsahu, diffusion steps a guidance scale podľa zdroja videa.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section section-altcards" id="auto-detect">
+    <div class="section-header">
+      <div class="section-kicker">Smart Auto-detection</div>
+      <h2>GUI sa nastaví podľa videa, nie naopak</h2>
+    </div>
+    <div class="card-grid">
+      <article class="card">
+        <div class="card-tag">Pohlavie + multispeaker</div>
+        <h3>Pitch analýza F0</h3>
+        <p>librosa pyin na demucs vokáloch — median F0, std, bimodalita. Auto-nastaví voice design preset (🇸🇰 muž / 🇸🇰 žena / multi-voice).</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">Typ obsahu</div>
+        <h3>Whisper + keyword regex</h3>
+        <p>90 s sample, multilingual auto-lang. EN + SK keywords (C++, SQL, GitHub, databáza, tabuľka…) → general / programming / technical / sql / educational / podcast / review / news.</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">OmniVoice params</div>
+        <h3>Decision tree</h3>
+        <p>tech content → 96 steps + 2.8 guidance, multispeaker → 96+3.0, low confidence → 96+3.0. Nemusíš tipovať — auto-detect nastaví na základe zdroja.</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">Konzistentný rod</div>
+        <h3>Speaker gender propagation</h3>
+        <p>Zistený rod sa propaguje do prekladového promptu aj refine pass-u (G3-12B). Plus deterministický regex post-fix („som dokončil" → „som dokončila") pre stopercentnú konzistenciu cez celé video.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section section-altcards" id="cloning">
+    <div class="section-header">
+      <div class="section-kicker">Voice cloning architecture v2 (2026-05-08)</div>
+      <h2>SK akcent + identita pôvodného speakera</h2>
+    </div>
+    <div class="card-grid">
+      <article class="card">
+        <div class="card-tag">Krok 1 · Demucs</div>
+        <h3>Extrakcia hlasu z videa</h3>
+        <p>htdemucs htdemucs vyseparuje vokály z input videa. Cleanup + European EQ shaping → cca 5.5 s referenčného audia s timbre pôvodného speakera.</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">Krok 2 · Chatterbox SK 2.2</div>
+        <h3>SK-flavored ref</h3>
+        <p>Chatterbox (SK fine-tune) s PRO config CONFIG_ANTICUT vyrobí ~6 s SK ref audio: SK akcent zapečený v modeli + timbre z video clone-u (audio prompt). Bez halucinácií vďaka safe_mode fallback retry logike.</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">Krok 3 · OmniVoice</div>
+        <h3>Final TTS s SK akcentom</h3>
+        <p>OmniVoice (zero-shot, 600+ jazykov) klonuje z SK-flavored referencie. Output: SK akcent + identita pôvodného video speakera + OmniVoice quality. Žiadny zero-shot accent leak.</p>
+      </article>
+      <article class="card">
+        <div class="card-tag">Krok 4 · PRO Master</div>
+        <h3>Open clarity EQ</h3>
+        <p>Bass body (70Hz/120Hz +2dB) + de-nasal cut (1.5kHz) + presence (3.5kHz) + sparkle highs (8/12/15kHz). EBU R128 -20 LUFS, kompresor 3:1, lowpass 16 kHz. Background music -15 dB.</p>
       </article>
     </div>
   </section>
