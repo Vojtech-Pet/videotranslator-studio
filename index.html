@@ -129,6 +129,16 @@ nav{display:flex;align-items:center;justify-content:space-between;gap:1rem;min-h
   width:100%;display:flex;justify-content:flex-end;
 }
 
+/* ---- Audio samples grid ---- */
+.audio-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-top:1rem}
+.audio-card{
+  border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--surface);padding:1rem;
+  box-shadow:var(--shadow-sm);
+}
+.audio-card-title{font-weight:700;margin-bottom:.6rem;color:var(--ink)}
+.audio-card audio{width:100%;height:40px}
+@media (max-width:780px){.audio-grid{grid-template-columns:1fr}}
 /* ---- Demo video (responsive 16:9) ---- */
 .video-wrap{
   position:relative;width:100%;aspect-ratio:16/9;
@@ -319,6 +329,7 @@ footer a:hover{color:var(--primary-dark)}
     <div class="hero-left">
       <h1>Z videa do slovenčiny <span class="hero-gradient">automaticky</span> za pár minút.</h1>
       <p>Automatický video-dubbing pipeline. Whisper STT → Gemma preklad → OmniVoice TTS → finálna A/V montáž. Všetko lokálne, bez cloudu.</p>
+      <p style="font-size:.85rem;color:var(--muted);margin-top:.5rem;font-style:italic">EN summary: Local-first AI video dubbing pipeline — Whisper speech-to-text → fine-tuned Gemma 4 26B (EN→SK) → OmniVoice TTS with voice cloning. Runs fully on a single RTX 4090, no cloud APIs.</p>
       <div class="hero-actions">
         <a href="https://github.com/Vojtech-Pet/videotranslator-studio" class="btn-primary">Vyskúšať na GitHube</a>
         <a href="#funkcie" class="btn-secondary">Pozri funkcie</a>
@@ -346,6 +357,28 @@ footer a:hover{color:var(--primary-dark)}
     <p style="margin-top:1rem;font-size:.9rem;color:var(--muted)">
       Link na video: <a href="https://youtu.be/OYzaQf7kO3M" style="color:var(--primary);font-weight:600">https://youtu.be/OYzaQf7kO3M</a> · pôvodný materiál: Tim Urban / TED · CC-BY-NC-ND
     </p>
+  </section>
+
+  <section class="section" id="audio-samples">
+    <div class="section-header">
+      <div class="section-kicker">Audio ukážky SK TTS</div>
+      <h2>Ako znie OmniVoice / Chatterbox v slovenčine</h2>
+      <p style="margin-top:.5rem;color:var(--muted)">3 krátke vzorky vygenerované lokálnym TTS modelom. Žiadny cloud, žiadne API — všetko bežalo na RTX 4090.</p>
+    </div>
+    <div class="audio-grid">
+      <div class="audio-card">
+        <div class="audio-card-title">Pozdrav (3.5s)</div>
+        <audio controls preload="none" src="audio/chatterbox_sk_greeting_studio.mp3"></audio>
+      </div>
+      <div class="audio-card">
+        <div class="audio-card-title">Vysvetlenie (5.5s)</div>
+        <audio controls preload="none" src="audio/chatterbox_sk_explanation_studio.mp3"></audio>
+      </div>
+      <div class="audio-card">
+        <div class="audio-card-title">Naratívny štýl (6.1s)</div>
+        <audio controls preload="none" src="audio/chatterbox_sk_narrative_studio.mp3"></audio>
+      </div>
+    </div>
   </section>
 
   <section class="section section-altcards">
