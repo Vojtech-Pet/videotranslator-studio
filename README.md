@@ -3,6 +3,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 
+🌐 **Languages:** 🇸🇰 Slovak · [🇬🇧 English](README.en.md)
+
 Automatický **EN→SK** (a iné jazyky) video-dubbing pipeline. STT → preklad → TTS → finalizácia. Plne lokálne, bez cloudu.
 
 🌐 **Web:** https://vojtech-pet.github.io/videotranslator-studio
