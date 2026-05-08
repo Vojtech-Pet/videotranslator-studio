@@ -129,7 +129,18 @@ nav{display:flex;align-items:center;justify-content:space-between;gap:1rem;min-h
   width:100%;display:flex;justify-content:flex-end;
 }
 
-/* ---- App mockup (realistic) ---- */
+/* ---- Hero screenshot (real GUI) ---- */
+.hero-screenshot-link{
+  display:block;width:min(100%,560px);
+  border-radius:14px;overflow:hidden;
+  box-shadow:var(--shadow-md);
+  border:1px solid rgba(30,58,138,.25);
+  transform:rotate(0.6deg) translateY(4px);
+  transition:transform .25s ease,box-shadow .25s ease;
+}
+.hero-screenshot-link:hover{transform:rotate(0deg) translateY(0);box-shadow:0 30px 70px rgba(30,58,138,.28)}
+.hero-screenshot{width:100%;height:auto;display:block;background:#0e1117}
+/* ---- App mockup (legacy, kept for reference) ---- */
 .hero-mockup{
   width:min(95%,540px);aspect-ratio:4/3.1;
   border:1px solid rgba(30,58,138,.25);border-radius:14px;box-shadow:var(--shadow-md);
@@ -306,48 +317,9 @@ footer a:hover{color:var(--primary-dark)}
       </div>
     </div>
     <div class="hero-right">
-      <div class="hero-mockup">
-        <div class="app-titlebar">
-          <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
-          <span class="ttl">VideoTranslator Studio</span>
-        </div>
-        <div class="app-body">
-          <div class="app-sidebar">
-            <div class="app-brand">
-              <div class="brand-name">VideoTranslator</div>
-              <div class="brand-sub">Studio</div>
-            </div>
-            <div class="nav-label">NAVIGÁCIA</div>
-            <div class="snav-item active"><span class="ic">📁</span>Lokálny súbor</div>
-            <div class="snav-item"><span class="ic">⬇</span>Stiahnutie videa</div>
-            <div class="snav-item"><span class="ic">🔑</span>API kľúče</div>
-            <div class="snav-item"><span class="ic">🔧</span>Nástroje</div>
-            <div class="snav-item"><span class="ic">🎙</span>Narrátor</div>
-          </div>
-          <div class="app-content">
-            <div class="wizard">
-              <div class="wiz-step active"><div class="wiz-num">1</div><div class="wiz-label">STT</div></div>
-              <div class="wiz-step active"><div class="wiz-num">2</div><div class="wiz-label">Preklad</div></div>
-              <div class="wiz-step active"><div class="wiz-num">3</div><div class="wiz-label">TTS</div></div>
-              <div class="wiz-step"><div class="wiz-num">4</div><div class="wiz-label">Final</div></div>
-            </div>
-            <div class="content-block">
-              <div class="block-label">Vstupné súbory (batch)</div>
-              <div class="dropzone"><span class="up">▲</span>Presuň video sem · alebo klikni</div>
-            </div>
-            <div class="content-block">
-              <div class="block-label">Typ obsahu</div>
-              <div class="row-controls">
-                <span class="chip active">Všeobecný</span>
-                <span class="chip">Náučné</span>
-                <span class="chip">Technický</span>
-                <span class="chip">SQL/DB</span>
-              </div>
-            </div>
-            <div class="run-btn">▶ Spustiť preklad</div>
-          </div>
-        </div>
-      </div>
+      <a href="screenshot.png" class="hero-screenshot-link" aria-label="Otvoriť screenshot v plnej veľkosti">
+        <img src="screenshot.png" alt="VideoTranslator Studio v2.0 — Qt6 GUI s 4-krokovým wizardom (STT, Preklad, TTS, Finalizácia)" class="hero-screenshot" loading="eager" width="1743" height="1305">
+      </a>
     </div>
   </div>
 </section>
