@@ -102,25 +102,25 @@ _GLOSSARY_ENTRIES = [
      r'\bserver\s+management\s+utility\b', True),
 
     # C++ / game development
-    ("game engine",             "herný enžin",
+    ("game engine",             "herný engine",
      r'\bherný\s+motor\b', True),
 
-    ("graphics engine",         "grafický enžin",
+    ("graphics engine",         "grafický engine",
      r'\bgrafický\s+motor\b', True),
 
-    ("physics engine",          "fyzikálny enžin",
+    ("physics engine",          "fyzikálny engine",
      r'\bfyzikálny\s+motor\b', True),
 
-    ("voxel engine",            "voxel enžin",
+    ("voxel engine",            "voxel engine",
      r'\bvoxel\w*\s+motor\b', True),
 
-    ("rendering engine",        "renderovací enžin",
+    ("rendering engine",        "renderovací engine",
      r'\brenderovac[íi]\s+motor\b', True),
 
-    ("shader",                  "šejder",
+    ("shader",                  "shader",
      r'\bshader\b', False),
 
-    ("shaders",                 "šejdery",
+    ("shaders",                 "shadery",
      r'\bshaders\b', False),
 
     ("pathfinding",             "pathfinding",
@@ -177,12 +177,12 @@ _CONTENT_TYPE_CONTEXTS = {
     "programming": (
         "You are translating segments from a programming/game development tutorial.\n"
         "Key terminology rules:\n"
-        "- 'engine' in programming context = 'enžin' (NOT 'motor')\n"
-        "- 'game engine' = 'herný enžin', 'graphics engine' = 'grafický enžin', "
-        "'physics engine' = 'fyzikálny enžin'\n"
-        "- 'shader' = 'šejder' (for TTS pronunciation)\n"
+        "- 'engine' in programming context MUST stay as 'engine' (NOT 'motor', NOT 'enžin')\n"
+        "- 'game engine' = 'herný engine', 'graphics engine' = 'grafický engine', "
+        "'physics engine' = 'fyzikálny engine'\n"
+        "- 'shader' = 'shader' (NOT 'tieňovač', NOT 'šablóna')\n"
         "- 'era' = 'éra' (NOT 'chyba' which means error)\n"
-        "- Keep: DirectX, OpenGL, SDL, C++, pathfinding, voxel, framework\n"
+        "- Keep in English: DirectX, OpenGL, SDL, C++, pathfinding, voxel, framework, mesh, vertex, collider, fragment\n"
         "- 'food chain' = 'potravinový reťazec'"
     ),
     "educational": (
@@ -309,25 +309,40 @@ def get_postfix_rules() -> list[tuple]:
         (r'\bflashovať\b',                   'nahrať obraz'),
         (r'\brepository\b',                  'repozitár'),
         (r'\bdatacenter\b',                  'dátové centrum'),
-        # C++ / game dev — engine → enžin (kontextovo špecifické spojenia)
-        (r'\bherné\s+motor\w*\b',            'herné enžiny'),
-        (r'\bherný\s+motor\b',               'herný enžin'),
-        (r'\bherného\s+motora?\b',           'herného enžinu'),
-        (r'\bherným\s+motorom\b',            'herným enžinom'),
-        (r'\bgrafický\s+motor\b',            'grafický enžin'),
-        (r'\bgrafického\s+motora?\b',        'grafického enžinu'),
-        (r'\bgrafické\s+motor\w*\b',         'grafické enžiny'),
-        (r'\bfyzikálny\s+motor\b',           'fyzikálny enžin'),
-        (r'\bfyzikálneho\s+motora?\b',       'fyzikálneho enžinu'),
-        (r'\bfyzikálne\s+motor\w*\b',        'fyzikálne enžiny'),
-        (r'\bvoxel\w*\s+motor\b',            'voxel enžin'),
-        (r'\bvoxel\w*\s+motora?\b',          'voxel enžinu'),
-        (r'\brenderovac[íi]\s+motor\b',      'renderovací enžin'),
+        # C++ / game dev — engine zostáva v EN (NIE motor, NIE enžin)
+        # Preferujeme anglický termín "engine" — pôvodný odborný výraz, lepšie pre TTS
+        (r'\bherné\s+motor\w*\b',            'herné enginy'),
+        (r'\bherný\s+motor\b',               'herný engine'),
+        (r'\bherného\s+motora?\b',           'herného engineu'),
+        (r'\bherným\s+motorom\b',            'herným engineom'),
+        (r'\bgrafický\s+motor\b',            'grafický engine'),
+        (r'\bgrafického\s+motora?\b',        'grafického engineu'),
+        (r'\bgrafické\s+motor\w*\b',         'grafické enginy'),
+        (r'\bfyzikálny\s+motor\b',           'fyzikálny engine'),
+        (r'\bfyzikálneho\s+motora?\b',       'fyzikálneho engineu'),
+        (r'\bfyzikálne\s+motor\w*\b',        'fyzikálne enginy'),
+        (r'\bvoxel\w*\s+motor\b',            'voxel engine'),
+        (r'\bvoxel\w*\s+motora?\b',          'voxel engineu'),
+        (r'\brenderovac[íi]\s+motor\b',      'renderovací engine'),
+        # Force-replace zvyšný "motor" → "engine" v jednotlivých prípadoch
+        # (LLM ho dáva sólo: "Motor nebežal", "Tieto dva motory", "začíname s grafickým motorom")
+        # Konzervatívne: iba keď nie je v aute kontextu (auto/auta/automobil)
+        (r'\bMotor\s+nebež',                 'Engine nebež'),
+        (r'\bgrafickým\s+motorom\b',         'grafickým engineom'),
+        (r'\bTieto\s+dva\s+motory\b',        'Tieto dva enginy'),
+        (r'\bvlastné\s+motor[yi]\b',         'vlastné enginy'),
+        (r'\bvlastné\s+programy,\s+motory\b','vlastné programy, enginy'),
+        # Phonetic enžin → engine (legacy z predošlých postfix pravidiel)
+        (r'\benžin\b',                       'engine'),
+        (r'\benžinu\b',                      'engineu'),
+        (r'\benžiny\b',                      'enginy'),
+        (r'\benžinom\b',                     'engineom'),
+        (r'\benžine\b',                      'engineu'),
         # food chain — iba striktný nominatív, iné pády necháme LLM-u
         (r'\breťaz\s+potravy\b',              'potravinový reťazec'),
-        # shader — anglický tvar ostáva keď ho TTS neporozumie; inak šejder
-        (r'\bshader\b',                      'šejder'),
-        (r'\bshaders\b',                     'šejdery'),
+        # shader — anglický tvar ostáva keď ho TTS neporozumie; inak shader
+        (r'\bshader\b',                      'shader'),
+        (r'\bshaders\b',                     'shadery'),
         # Whisper STT chyba: SDL sa počuje ako SDN
         (r'\bSDN\b(?=\s*[.,]|\s+čo|\s+ktorý|\s+mi|\s+je|\s+sa)', 'SDL'),
         # "nothing" preložené ako programátorský null — oprava na prirodzené "nič"

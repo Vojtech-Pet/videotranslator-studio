@@ -2081,13 +2081,16 @@ def translate_fulldoc_with_lmstudio(
     lmstudio_timeout: int = 300,
     content_type: str = "general",
     src_lang: str = "en",
-    batch_size: int = 50,
+    batch_size: int = 200,  # 2026-05-10: zvýšené z 50 na 200 — model dostane väčší kontext, lepší preklad fragmentov (Whisper VAD rozdelil dlhú vetu na 4-6s)
     speaker_gender: str = "",  # "feminine" / "masculine" / "" (default = masculine)
 ) -> list:
     """Preloží dokument cez LM Studio API v dávkach po batch_size segmentov.
 
     Dávky zaručujú že model nepreťaží kontext a zachová 1:1 mapovanie segmentov.
     Fallback na sliding window ak dávka zlyhá alebo má < 50% zhodu.
+
+    batch_size=200 znamená pre videá <200 segmentov ide celý dokument naraz —
+    model vidí všetky fragmenty Whisper STT v kontexte a môže prepojiť odsekané vety.
     """
     import sys
     from pathlib import Path as _P
@@ -3327,6 +3330,9 @@ def apply_gender_fix_sk_feminine(segments: list) -> list:
     def _fix(text: str) -> str:
         # som [verb]l → som [verb]la  (past tense m → f, covers: som videl, som bol, som vyrastal ...)
         text = _re.sub(r'\bsom (\w+l)\b', r'som \1a', text)
+        # [verb]l som → [verb]la som  (reversed order: naučil som → naučila som, vyrastal som → vyrastala som)
+        # NOVÉ 2026-05-09 — pôvodné regex chytalo iba 'som [verb]l', nezachytilo 'naučil som sa'
+        text = _re.sub(r'\b(\w+l) som\b', r'\1a som', text)
         # [Bb]ol som (word order reversed)
         text = _re.sub(r'\b([Bb])ol som\b', r'\1ola som', text)
         # [Bb]ol by som
@@ -3335,6 +3341,21 @@ def apply_gender_fix_sk_feminine(segments: list) -> list:
         text = _re.sub(r'\b(\w+l) by som\b', r'\1a by som', text)
         # by som [particle] [verb]l  (conditional reversed: by som sa zaujímal → by som sa zaujímala)
         text = _re.sub(r'\bby som (\w+ )(\w+l)\b', r'by som \1\2a', text)
+        # som si [verb]l → som si [verb]la (som si bol istý → som si bola istá; ale 'istý' je adj — handle nižšie)
+        text = _re.sub(r'\bsom si (\w+l)\b', r'som si \1a', text)
+        # som si [adj]ý → som si [adj]á  (bola som si istý → bola som si istá)
+        # Úzky pattern: 'si [adj]ý' kde slovo nesie 'ý' na konci a má aspoň 4 znaky
+        text = _re.sub(r'\bsom si (\w{3,})ý\b', r'som si \1á', text)
+        # som [adj]ý → som [adj]á (bol som rád → bola som rada — ale 'rád' je výnimka)
+        # tu opatrne — len pre adj v ý/ž koniec
+        text = _re.sub(r'\bbola som (\w{3,})ý\b', r'bola som \1á', text)
+        # NOVÉ 2026-05-09 — chyba "som sa prihlásil" / "som sa stretol" / "som sa naučil"
+        # Pattern: 'som sa [verb]l' → 'som sa [verb]la' (sa-particle medzi som a slovesom)
+        text = _re.sub(r'\bsom sa (\w+l)\b', r'som sa \1a', text)
+        # Plus 'som si [verb]l' kde si nie je adj
+        text = _re.sub(r'\bsom si (\w+l)\b', r'som si \1a', text)
+        # 'som ti/ho/ju/im [verb]l' (dative pronouns)
+        text = _re.sub(r'\bsom (ti|ho|ju|im|mu|jej) (\w+l)\b', r'som \1 \2a', text)
         return text
 
     result = []
@@ -5228,6 +5249,10 @@ def compress_with_lmstudio(
         return text
 
     _effective_model = lmstudio_model
+    if not _effective_model:
+        # Env var fallback (nastavený VTS GUI cez Settings → compressor model)
+        import os as _os
+        _effective_model = _os.environ.get("VTS_LMSTUDIO_COMPRESSOR_MODEL", "").strip()
     if not _effective_model:
         try:
             _mresp = requests.get(

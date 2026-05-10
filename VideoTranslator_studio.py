@@ -469,7 +469,7 @@ _NAV_EMOJIS = ["📁","⬇️","🔑","🔧","🎚️","⚙️","🎙️"]
 # Public verzia — 6 hlavných translation engineov (zobrazené v UI dropdowne).
 # Pokročilé (madlad, multislav5lang, translategemma, llama, hybrid, nllb, grammar_fix)
 # sú dostupné cez settings.trans_engine ak ich nastavíš ručne v paths.json / config.
-_PUBLIC_ENGINES = ["gemma", "lmstudio", "google", "chatgpt", "gemini", "grok"]
+_PUBLIC_ENGINES = ["eurollm", "gemma", "lmstudio", "google", "chatgpt", "gemini", "grok"]
 _ALL_ENGINES = ["google","madlad","multislav5lang","translategemma","llama","gemma",
                 "lmstudio","hybrid","nllb","chatgpt","grok","gemini","grammar_fix"]
 
@@ -699,7 +699,11 @@ class AppSettings:
     models_skip_dialog: bool = False   # ak True, nezobrazovať dialog modelov pri štarte
     refine_engine_choice: str = "Gemma 3 12B v1 (Ollama, fine-tune, default)"  # 2-LLM refine model voľba
     use_llamacpp_server: bool = True   # built-in open-source server (default ON, súčasť VTS)
-    def_trans_engine: str = "lmstudio"  # LM Studio Gemma 4 26B base — overený 2026-05-06
+    def_trans_engine: str = "eurollm"  # EuroLLM-9B trojica (V2 translate + V1 compress + V1 grammar refine) — 2026-05-09
+    def_lmstudio_model: str = "vojtech/eurollm-9b-sk-translate-v3-gguf/eurollm9b-sk-translate-v3-q5km.gguf"  # translate model (V3 augmented 2026-05-10)
+    def_lmstudio_compressor_model: str = "vojtech/eurollm-9b-sk-compressor-v1-gguf/eurollm9b-sk-compressor-v1-q5km.gguf"  # compress pass (post-translate)
+    def_lmstudio_grammar_model: str = "vojtech/eurollm-9b-sk-grammar-v1-gguf/eurollm9b-sk-grammar-v1-q5km.gguf"  # grammar refine
+    def_speaker_gender: str = ""  # "" = auto-detect, "feminine" = žena, "masculine" = muž
     chatterbox_model: str = str(_DEFAULT_CHATTERBOX_MODEL)
     cb_voice: str = "(predvolený)"
     cb_default_voice: str = "chatterbox_sk_narrative.wav"
@@ -2354,49 +2358,116 @@ class StudioWindow(QMainWindow):
         self._set_trans.setCurrentText(self.settings.def_trans_engine if self.settings.def_trans_engine in _PUBLIC_ENGINES else "lmstudio")
         self._set_trans.setFixedHeight(26)
         dl.addWidget(self._set_trans,0,3)
-        # Built-in llama-cpp-server (alternatíva LM Studio, open source, súčasť VTS)
-        self._chk_llamacpp = QCheckBox("Použiť built-in llama-cpp-server (namiesto LM Studio)")
-        self._chk_llamacpp.setChecked(getattr(self.settings, "use_llamacpp_server", True))
-        self._chk_llamacpp.setToolTip(
-            "Open-source náhrada LM Studio. Auto-spustí sa pri preklade s engine=lmstudio.\n"
-            "Beží na rovnakom porte 1234 s OpenAI-compatible API. Bez 3rd party závislostí."
-        )
-        self._chk_llamacpp.stateChanged.connect(
-            lambda *_: (setattr(self.settings, "use_llamacpp_server", self._chk_llamacpp.isChecked()),
-                        self.settings.save())
-        )
-        dl.addWidget(self._chk_llamacpp, 3, 0, 1, 4)
-
-        # Lokálny GGUF model — presunutý sem z hlavnej stránky (clean UX)
-        dl.addWidget(self._tr_lbl("lbl_gemma_model","Lokálny GGUF model:"),1,4)
-        self._set_gemma_model = QComboBox()
-        self._set_gemma_model.setEditable(True)
-        # Mirror items z _madlad_model (ktorý je primary widget so zoznamom)
-        if hasattr(self, "_madlad_model"):
-            items = [self._madlad_model.itemText(i) for i in range(self._madlad_model.count())]
-            self._set_gemma_model.addItems(items)
-            self._set_gemma_model.setCurrentText(self._madlad_model.currentText())
-        # Two-way sync so _madlad_model
-        self._set_gemma_model.currentTextChanged.connect(self._sync_gemma_model_from_settings)
-        self._set_gemma_model.setFixedHeight(26)
-        dl.addWidget(self._set_gemma_model,1,5)
-        # Refine model — pre 2-LLM pipeline (Opraviť gramatiku 2× LLM)
-        dl.addWidget(self._tr_lbl("lbl_refine_engine","Refine LLM (Opraviť gramatiku):"),2,4)
-        self._set_refine_engine = QComboBox()
-        # 27B multitask v2 + sk-corrector-v3 odstránené (broken refine — echoed EN, halucinácie).
-        # Gemma 3 12B v1 (Ollama fine-tune) overený ako stabilný refine pre tech texty.
-        self._set_refine_engine.addItems([
-            "Gemma 3 12B v1 (Ollama, fine-tune, default)",
-            "Gemma 3 12B Q8 (llama.cpp)",
-            "Gemma 4 26B (LM Studio, primary reuse)",
-            "Custom Ollama model",
+        # LM Studio model (viditeľné keď engine=lmstudio) — pre tu sa nastavuje aj _lmstudio_model widget
+        # Default V2 (fine-tune, 2026-05-09) ktorý porazil Gemma-4-26B na constrained prekladoch.
+        dl.addWidget(self._tr_lbl("lbl_lmstudio_model","LM Studio model (pri engine=lmstudio):"),7,0)
+        self._lmstudio_model = QComboBox(); self._lmstudio_model.setEditable(True)
+        self._lmstudio_model.addItems([
+            "vojtech/eurollm-9b-sk-translate-v3-gguf/eurollm9b-sk-translate-v3-q5km.gguf",  # V3 augmented (DEFAULT)
+            "vojtech/eurollm-9b-sk-translate-v3-gguf/eurollm9b-sk-translate-v3-q4km.gguf",
+            "vojtech/eurollm-9b-sk-translate-v2-gguf/eurollm9b-sk-translate-v2-q5km.gguf",
+            "vojtech/eurollm-9b-sk-translate-v2-gguf/eurollm9b-sk-translate-v2-q4km.gguf",
+            "vojtech/eurollm-9b-sk-translate-v1-gguf/eurollm9b-sk-translate-v1-q5km.gguf",
+            "26b_translator_v9",  # legacy Gemma-4-26B production
+            "eurollm-9b-instruct",  # baseline
+            "google_gemma-4-26b-a4b-it",
+            "gemma-3-27b-it",
+            "",  # auto (LM Studio loaded model)
         ])
-        _saved_refine = getattr(self.settings, "refine_engine_choice", "Gemma 3 12B Q8 (llama.cpp, default)")
-        if _saved_refine in [self._set_refine_engine.itemText(i) for i in range(self._set_refine_engine.count())]:
-            self._set_refine_engine.setCurrentText(_saved_refine)
-        self._set_refine_engine.setFixedHeight(26)
-        self._set_refine_engine.currentTextChanged.connect(self._on_refine_engine_changed)
-        dl.addWidget(self._set_refine_engine,2,5)
+        self._lmstudio_model.setCurrentText(getattr(self.settings, "def_lmstudio_model",
+            "vojtech/eurollm-9b-sk-translate-v3-gguf/eurollm9b-sk-translate-v3-q5km.gguf"))
+        self._lmstudio_model.setFixedHeight(26)
+        self._lmstudio_model.setToolTip(
+            "LM Studio model_id pre engine=lmstudio.\n"
+            "V2 (default) = EuroLLM-9B fine-tune 2026-05-09, porazil Gemma-4-26B na constrained prekladoch.\n"
+            "Prázdne = LM Studio si vyberie aktuálne loaded model."
+        )
+        dl.addWidget(self._lmstudio_model, 7, 1, 1, 5)
+        # Compressor (post-translate compress pass)
+        dl.addWidget(self._tr_lbl("lbl_lmstudio_compressor", "  └ Compressor (compress pass):"), 8, 0)
+        self._lmstudio_compressor_model = QComboBox(); self._lmstudio_compressor_model.setEditable(True)
+        self._lmstudio_compressor_model.addItems([
+            "vojtech/eurollm-9b-sk-compressor-v1-gguf/eurollm9b-sk-compressor-v1-q5km.gguf",  # V1 default
+            "vojtech/eurollm-9b-sk-compressor-v1-gguf/eurollm9b-sk-compressor-v1-q4km.gguf",
+            "26b_translator_v9",  # legacy fallback (Gemma-4-26B robil aj compress)
+            "",  # auto (LM Studio loaded model)
+        ])
+        self._lmstudio_compressor_model.setCurrentText(getattr(self.settings, "def_lmstudio_compressor_model",
+            "vojtech/eurollm-9b-sk-compressor-v1-gguf/eurollm9b-sk-compressor-v1-q5km.gguf"))
+        self._lmstudio_compressor_model.setFixedHeight(26)
+        self._lmstudio_compressor_model.setToolTip(
+            "LM Studio model pre compress pass (skráti SK preklad na target_seconds).\n"
+            "V1 (default) = EuroLLM-9B-Compressor 2026-05-09."
+        )
+        dl.addWidget(self._lmstudio_compressor_model, 8, 1, 1, 5)
+        # Grammar refine
+        dl.addWidget(self._tr_lbl("lbl_lmstudio_grammar", "  └ Grammar refine:"), 9, 0)
+        self._lmstudio_grammar_model = QComboBox(); self._lmstudio_grammar_model.setEditable(True)
+        self._lmstudio_grammar_model.addItems([
+            "vojtech/eurollm-9b-sk-grammar-v1-gguf/eurollm9b-sk-grammar-v1-q5km.gguf",  # V1 default (po dotrenovaní)
+            "vojtech/eurollm-9b-sk-grammar-v1-gguf/eurollm9b-sk-grammar-v1-q4km.gguf",
+            "g3-12b-translator-v1:latest",  # legacy Ollama
+            "",
+        ])
+        self._lmstudio_grammar_model.setCurrentText(getattr(self.settings, "def_lmstudio_grammar_model",
+            "vojtech/eurollm-9b-sk-grammar-v1-gguf/eurollm9b-sk-grammar-v1-q5km.gguf"))
+        self._lmstudio_grammar_model.setFixedHeight(26)
+        self._lmstudio_grammar_model.setToolTip(
+            "LM Studio model pre grammar refine pass (post-edit korektor).\n"
+            "V1 (default) = EuroLLM-9B-Grammar (po dotrenovaní 2026-05-09)."
+        )
+        dl.addWidget(self._lmstudio_grammar_model, 9, 1, 1, 5)
+        # Speaker gender (rod hovorca pre 1. osobu — fix "Začal som" vs "Začala som")
+        dl.addWidget(self._tr_lbl("lbl_speaker_gender", "  └ Rod hovorcu (pre 1. osobu):"), 11, 0)
+        self._speaker_gender = QComboBox()
+        self._speaker_gender.addItems(["(auto-detect)", "feminine (žena)", "masculine (muž)"])
+        _gender_map = {"": 0, "feminine": 1, "masculine": 2}
+        _curr = getattr(self.settings, "def_speaker_gender", "")
+        self._speaker_gender.setCurrentIndex(_gender_map.get(_curr, 0))
+        self._speaker_gender.setFixedHeight(26)
+        self._speaker_gender.setToolTip(
+            "Rod 1. osoby singuláru pre SK preklad (Začala/Začal som).\n"
+            "Auto-detect: VTS sa pokúsi zistiť z audio (pitch analýza).\n"
+            "Manuálne nastavenie ide priamo do system promptu LLM cez --speaker_gender."
+        )
+        dl.addWidget(self._speaker_gender, 11, 1, 1, 5)
+        # Preset trojica — jeden klik nastaví všetky 3 modely + engine
+        dl.addWidget(self._tr_lbl("lbl_trojica_preset", "Preset trojica:"), 10, 0)
+        _preset_row = QHBoxLayout()
+        btn_eurollm = QPushButton("EuroLLM-9B trojica (V2 + Compressor + Grammar)")
+        btn_eurollm.setToolTip(
+            "Nastaví Translate=V2, Compress=CompressorV1, Grammar=GrammarV1.\n"
+            "Konzistentná EuroLLM-9B trojica trénovaná 2026-05-09. Eliminuje halucinácie\n"
+            "ktoré mal Gemma-4-26B. 3× menšia VRAM (6 GB peak)."
+        )
+        btn_eurollm.clicked.connect(lambda *_: self._apply_trojica_preset("eurollm"))
+        _preset_row.addWidget(btn_eurollm)
+        btn_gemma_legacy = QPushButton("Gemma-4-26B legacy")
+        btn_gemma_legacy.setToolTip(
+            "Pôvodná produkčná trojica: Gemma-4-26B translator (16 GB) + G3-12B compress + G3-12B refine.\n"
+            "Mala halucinácie pri určitých EN segmentoch (pozri MemPalace decisions)."
+        )
+        btn_gemma_legacy.clicked.connect(lambda *_: self._apply_trojica_preset("gemma"))
+        _preset_row.addWidget(btn_gemma_legacy)
+        # [v1 BETA] Pridať chybu prekladu — manuálny zber dát pre V4 dataset
+        btn_add_error = QPushButton("➕ Pridať chybu prekladu")
+        btn_add_error.setToolTip(
+            "Otvorí terminál s interaktívnym tool-om pre pridanie chyby prekladu.\n"
+            "Pýta: EN text → SK zlý → SK správny → kategória.\n"
+            "Ukladá do /mnt/tts_data/knihy/vts_error_log/error_log_verified.jsonl pre V4 tréning."
+        )
+        btn_add_error.clicked.connect(lambda *_: self._open_add_error_terminal())
+        _preset_row.addWidget(btn_add_error)
+        _preset_row.addStretch(1)
+        _preset_w = QWidget(); _preset_w.setLayout(_preset_row)
+        dl.addWidget(_preset_w, 10, 1, 1, 5)
+        # URL (pri engine=lmstudio)
+        self._lmstudio_url = QLineEdit("http://localhost:1234/v1")
+        self._lmstudio_url.setVisible(False)  # skrytý widget — drží len defaultnú URL pre _build_translate_args
+        # [v1 BETA] Vymazané duplicitné/nepoužívané widgety (eurollm engine ich nepotrebuje):
+        #   - _chk_llamacpp (built-in llama-cpp-server) — pri eurollm sa používa LM Studio
+        #   - _set_gemma_model (Lokálny GGUF model) — pre staršie engine, nepoužíva sa pri eurollm
+        #   - _set_refine_engine (Refine LLM Custom Ollama) — duplikát s Grammar refine widget
         # Whisper model — editovateľný + perzistovaný
         dl.addWidget(self._tr_lbl("lbl_whisper_model","Whisper model:"),0,4)
         self._set_whisper = QComboBox()
@@ -4059,6 +4130,83 @@ class StudioWindow(QMainWindow):
                 self._set_gemma_model.setCurrentIndex(0)
             self._set_gemma_model.blockSignals(False)
 
+    def _apply_trojica_preset(self, name: str):
+        """Jeden klik nastaví všetky 3 modely (translate + compress + grammar)
+        plus engine. 'eurollm' = nová trojica (2026-05-09), 'gemma' = legacy."""
+        presets = {
+            "eurollm": {
+                "engine": "lmstudio",
+                "translate": "vojtech/eurollm-9b-sk-translate-v3-gguf/eurollm9b-sk-translate-v3-q5km.gguf",
+                "compressor": "vojtech/eurollm-9b-sk-compressor-v1-gguf/eurollm9b-sk-compressor-v1-q5km.gguf",
+                "grammar": "vojtech/eurollm-9b-sk-grammar-v1-gguf/eurollm9b-sk-grammar-v1-q5km.gguf",
+            },
+            "gemma": {
+                "engine": "lmstudio",
+                "translate": "26b_translator_v9",
+                "compressor": "",  # auto = LM Studio loaded model
+                "grammar": "g3-12b-translator-v1:latest",  # legacy Ollama (mimo LM Studio)
+            },
+        }
+        p = presets.get(name)
+        if not p:
+            return
+        if hasattr(self, "_set_trans"):
+            self._set_trans.setCurrentText(p["engine"])
+        if hasattr(self, "_lmstudio_model"):
+            self._lmstudio_model.setCurrentText(p["translate"])
+        if hasattr(self, "_lmstudio_compressor_model"):
+            self._lmstudio_compressor_model.setCurrentText(p["compressor"])
+        if hasattr(self, "_lmstudio_grammar_model"):
+            self._lmstudio_grammar_model.setCurrentText(p["grammar"])
+        # Persistuj okamžite
+        self.settings.def_trans_engine = p["engine"]
+        self.settings.def_lmstudio_model = p["translate"]
+        self.settings.def_lmstudio_compressor_model = p["compressor"]
+        self.settings.def_lmstudio_grammar_model = p["grammar"]
+        try:
+            self.settings.save()
+        except Exception:
+            pass
+        # Vizuálny feedback (status bar ak existuje)
+        try:
+            self.statusBar().showMessage(f"Preset '{name}' aplikovaný — všetky 3 modely nastavené.", 4000)
+        except Exception:
+            pass
+
+    def _open_add_error_terminal(self):
+        """[v1 BETA] Otvorí terminál s python3 /mnt/tts_data/knihy/add_translation_error.py
+        — pre rýchle pridanie chyby prekladu do V4 datasetu.
+        Po stabilizácii sa môže promotnúť do v2 release."""
+        import subprocess as _sp
+        cmd = ["python3", "/mnt/tts_data/knihy/add_translation_error.py"]
+        terminals = [
+            ("gnome-terminal", ["--", *cmd]),
+            ("konsole", ["-e", *cmd]),
+            ("xterm", ["-e", *cmd]),
+            ("kitty", cmd),
+            ("alacritty", ["-e", *cmd]),
+            ("xfce4-terminal", ["-e", " ".join(cmd)]),
+        ]
+        for term, args in terminals:
+            try:
+                _sp.Popen([term, *args])
+                try:
+                    self.statusBar().showMessage(f"Otvorený terminál ({term}) — pridaj chybu prekladu.", 4000)
+                except Exception:
+                    pass
+                return
+            except FileNotFoundError:
+                continue
+        try:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Žiadny terminál",
+                "Nenašiel som dostupný terminál (gnome-terminal/konsole/xterm/kitty).\n"
+                "Spusti ručne v termináli:\n\n"
+                "  python3 /mnt/tts_data/knihy/add_translation_error.py\n\n"
+                "Alebo cez alias: vts-add-error")
+        except Exception:
+            print("ERROR: žiadny terminál — spusti ručne: python3 /mnt/tts_data/knihy/add_translation_error.py")
+
     def _sync_gemma_model_from_settings(self, txt: str):
         """Settings dropdown → main page widget (zachová single source of truth)."""
         if not hasattr(self, "_madlad_model"):
@@ -4466,9 +4614,67 @@ class StudioWindow(QMainWindow):
                 "--ollama_translate_timeout", "180",
                 "--no_adapt_llm",
             ], env
+        if engine == "eurollm":
+            # EuroLLM trojica = LM Studio translate (V3 augmented) + LM Studio compress (V1) + lokálny llama.cpp grammar (V1)
+            # V3 (2026-05-10): augmented s gender + glossary samples — model SAM produkuje feminine + EN tech
+            # termíny bez post-fix layer (V2 to nedokázal — 100% mužské default).
+            EUROLLM_TRANSLATE = "vojtech/eurollm-9b-sk-translate-v3-gguf/eurollm9b-sk-translate-v3-q5km.gguf"
+            EUROLLM_COMPRESSOR = "vojtech/eurollm-9b-sk-compressor-v1-gguf/eurollm9b-sk-compressor-v1-q5km.gguf"
+            EUROLLM_GRAMMAR_GGUF = "/mnt/tts_data/knihy/gguf_grammar_eurollm9b_v1/eurollm9b-sk-grammar-v1-q5km.gguf"
+            args = [
+                "--use_lmstudio_translate",
+                "--lmstudio_translate_url", "http://localhost:1234/v1",
+                "--lmstudio_translate_model", EUROLLM_TRANSLATE,
+                "--lmstudio_translate_timeout", "180",
+                "--no_adapt_llm",
+                # Grammar refine cez lokálny llama.cpp
+                "--refine_translation",
+                "--refine_model", EUROLLM_GRAMMAR_GGUF,
+                "--refine_gpu_layers", "-1",
+                "--llama_ctx", "4096",
+                # FIX: Vypnúť phonetic guard (zničil predošlý beh — "C++" → "SÍ-PLUS-PLUS",
+                # "game" → "gejm", "engine" → "enžiny", "framework" → "frameworky")
+                "--no-phonetic_respelling",
+            ]
+            # Speaker gender (manuálny override — keď "" tak VTS auto-detect rozhodne)
+            if hasattr(self, "_speaker_gender"):
+                _gender_idx = self._speaker_gender.currentIndex()
+                _gender_val = ["", "feminine", "masculine"][_gender_idx]
+            else:
+                _gender_val = getattr(self.settings, "def_speaker_gender", "").strip()
+            if _gender_val in ("feminine", "masculine"):
+                args += ["--speaker_gender", _gender_val]
+            if env is None:
+                env = os.environ.copy()
+            # Compressor cez env var (compress_with_lmstudio fallback)
+            env["VTS_LMSTUDIO_COMPRESSOR_MODEL"] = EUROLLM_COMPRESSOR
+            return args, env
+
         if engine == "lmstudio":
             lms_url   = self._lmstudio_url.text().strip()   if hasattr(self, "_lmstudio_url")   else "http://localhost:1234/v1"
-            lms_model = self._lmstudio_model.text().strip() if hasattr(self, "_lmstudio_model") else ""
+            # _lmstudio_model je QComboBox (editable) — currentText() funguje aj keď user napísal vlastné meno.
+            # Fallback na settings.def_lmstudio_model ak widget chýba (headless/CLI).
+            if hasattr(self, "_lmstudio_model"):
+                lms_model = self._lmstudio_model.currentText().strip()
+            else:
+                lms_model = getattr(self.settings, "def_lmstudio_model", "").strip()
+
+            # Compressor + grammar models — pošli do subprocess cez env vars
+            # (pipeline ich vie čítať v compress_with_lmstudio / refine fáze)
+            if hasattr(self, "_lmstudio_compressor_model"):
+                cmp_model = self._lmstudio_compressor_model.currentText().strip()
+            else:
+                cmp_model = getattr(self.settings, "def_lmstudio_compressor_model", "").strip()
+            if hasattr(self, "_lmstudio_grammar_model"):
+                gram_model = self._lmstudio_grammar_model.currentText().strip()
+            else:
+                gram_model = getattr(self.settings, "def_lmstudio_grammar_model", "").strip()
+            if env is None:
+                env = os.environ.copy()
+            if cmp_model:
+                env["VTS_LMSTUDIO_COMPRESSOR_MODEL"] = cmp_model
+            if gram_model:
+                env["VTS_LMSTUDIO_GRAMMAR_MODEL"] = gram_model
             args = ["--use_lmstudio_translate",
                     "--lmstudio_translate_url",   lms_url   or "http://localhost:1234/v1",
                     "--lmstudio_translate_timeout", "180",
@@ -5578,6 +5784,15 @@ class StudioWindow(QMainWindow):
         self.settings.ffmpeg       = self._set_ffmpeg.text().strip()
         self.settings.def_tts_engine   = self._set_tts.currentText()
         self.settings.def_trans_engine = self._set_trans.currentText()
+        if hasattr(self, "_lmstudio_model"):
+            self.settings.def_lmstudio_model = self._lmstudio_model.currentText().strip()
+        if hasattr(self, "_lmstudio_compressor_model"):
+            self.settings.def_lmstudio_compressor_model = self._lmstudio_compressor_model.currentText().strip()
+        if hasattr(self, "_lmstudio_grammar_model"):
+            self.settings.def_lmstudio_grammar_model = self._lmstudio_grammar_model.currentText().strip()
+        if hasattr(self, "_speaker_gender"):
+            _gender_idx = self._speaker_gender.currentIndex()
+            self.settings.def_speaker_gender = ["", "feminine", "masculine"][_gender_idx]
         self.settings.def_speech_gain  = self._set_speech_gain.text().strip()
         self.settings.def_music_volume = self._set_music_vol.text().strip()
         self.settings.def_base_tempo   = self._set_tempo.text().strip()
