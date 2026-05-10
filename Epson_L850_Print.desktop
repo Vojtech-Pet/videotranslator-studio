@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Epson L850 Print
+Comment=Simple print tool for Epson L850
+Exec=python3 /mnt/tts_data/VideoTranslator_studio/epson_l850_print.py
+Path=/mnt/tts_data/VideoTranslator_studio
+Terminal=false
+Categories=Utility;Printing;

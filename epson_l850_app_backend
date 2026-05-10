@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP="/mnt/tts_data/VideoTranslator_studio/epson_l850_print.py"
+SPOOL_DIR="/tmp/epson-l850-app-jobs"
+USER_NAME="vojtech"
+USER_ID="1000"
+
+if [ "$#" -eq 0 ]; then
+  echo 'direct epson-l850-app:/ "Epson L850 App" "Open Epson L850 Print app"'
+  exit 0
+fi
+
+JOB_ID="${1:-job}"
+TITLE="${3:-document}"
+mkdir -p "$SPOOL_DIR"
+chmod 0777 "$SPOOL_DIR"
+
+SAFE_TITLE="$(printf '%s' "$TITLE" | tr -cd '[:alnum:]. _-' | tr ' ' '_' | cut -c1-80)"
+if [ -z "$SAFE_TITLE" ]; then
+  SAFE_TITLE="document"
+fi
+
+OUT="$SPOOL_DIR/job-${JOB_ID}-${SAFE_TITLE}.print"
+
+if [ "$#" -ge 6 ] && [ -n "${6:-}" ] && [ -f "${6:-}" ]; then
+  cp "$6" "$OUT"
+else
+  cat > "$OUT"
+fi
+
+chmod 0666 "$OUT" 2>/dev/null || true
+
+echo "Saved print job to $OUT. The user watcher will open it."
+
+exit 0

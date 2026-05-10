@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Epson L850 Print Watcher
+Comment=Opens Epson L850 Print when a document is sent to L850_App
+Exec=python3 /mnt/tts_data/VideoTranslator_studio/epson_l850_watch.py
+Path=/mnt/tts_data/VideoTranslator_studio
+Terminal=false
+X-GNOME-Autostart-enabled=true

@@ -1,0 +1,53 @@
+# === Veľké výstupy / generované (NEPUSH-OVAŤ) ===
+temp/
+output/
+work/
+input/
+models/
+fish_speech/
+voices/
+memory/
+batch_checkpoint.json
+
+# === Python cache ===
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# === Backups ===
+*.bak
+*.bak_*
+*_pre_*
+*.broken_*
+
+# === Logs ===
+*.log
+logs/
+
+# === Cache adresáre ===
+unsloth_compiled_cache/
+.cache/
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Local config ===
+.env
+*.local
+
+# === Audio/video samples (nie kód) ===
+*.mp3
+*.mp4
+*.wav
+*.opus
+*.m4a
+*.mkv
+
+# === Modely a checkpointy ===
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.ckpt

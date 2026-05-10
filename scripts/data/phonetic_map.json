@@ -1,0 +1,4 @@
+{
+  "_info": "Používateľské fonetické prepisy — majú prednosť pred vstavanými. Formát: 'anglické_slovo': 'fonetický_prepis'. Veľkosť písmen sa rozlišuje len pri ALL-CAPS (IDE, API). Pre bežné slová stačí malé písmená — veľké sa doplní automaticky.",
+  "example": "príklad"
+}

@@ -1,0 +1,57 @@
+{
+  "_meta": {
+    "version": "2026-04-13",
+    "source": "MemPalace videotranslator_studio",
+    "generated_by": "mempalace_context_builder.py",
+    "description": "Domain knowledge pre Gemma 4 prekladač — SQL tutorial dubbing SK"
+  },
+  "sql_terms_preserve": [
+    "SQL", "NULL", "IS NULL", "IS NOT NULL", "ISNULL",
+    "COALESCE", "NULLIF", "TRUE", "FALSE", "BOOLEAN",
+    "SELECT", "FROM", "WHERE", "JOIN", "LEFT JOIN", "RIGHT JOIN",
+    "INNER JOIN", "GROUP BY", "ORDER BY", "HAVING",
+    "INSERT", "UPDATE", "DELETE", "CREATE", "DROP",
+    "PRIMARY KEY", "FOREIGN KEY", "NOT NULL", "DEFAULT"
+  ],
+  "sql_term_rules": {
+    "ISNULL": "funkcia na náhradu NULL — ISNULL(stĺpec, náhradná_hodnota). NIE podmienka.",
+    "IS NULL": "podmienka na detekciu NULL — WHERE stĺpec IS NULL. NIE funkcia.",
+    "IS NOT NULL": "podmienka na vynechanie NULL — WHERE stĺpec IS NOT NULL.",
+    "NULLIF": "funkcia vracajúca NULL keď sú dve hodnoty rovnaké — NULLIF(a, b).",
+    "COALESCE": "funkcia vracajúca prvú non-NULL hodnotu zo zoznamu — COALESCE(a, b, c).",
+    "NULL": "špeciálna hodnota — neznáma/chýbajúca hodnota. Vyslov ako 'nul' (nie 'nula')."
+  },
+  "phonetic_avoid": [
+    "ajznul", "ajsnul", "ajs nul",
+    "koalesk", "koaleskens", "kovaleskens",
+    "esíkjúel", "esíkjuel", "eskejuel",
+    "íz nul", "íz not nul",
+    "nulíf", "nulajf",
+    "bůlean", "buleen"
+  ],
+  "cps_calibration": {
+    "voice": "chatterbox_sk",
+    "chars_per_second": 12.5,
+    "calibrated": 12.68,
+    "confidence": "high",
+    "note": "TARGET_CHARS = slot_dur * 12.5. Toto je základ pre dĺžku prekladu."
+  },
+  "translation_rules": [
+    "ZACHOVAJ SQL výrazy presne ako sú: SQL, NULL, ISNULL, COALESCE, NULLIF, TRUE, FALSE.",
+    "NEPÍŠ fonetické prepisy SQL pojmov (ajznul, esíkjúel, koalesk...).",
+    "ISNULL, IS NULL a NULLIF sú rôzne funkcie — nepomiešaj ich.",
+    "Výsledný text musí byť prirodzene vysloviteľný slovenčinou.",
+    "Technické pojmy ponechaj anglicky ak nemajú bežný slovenský ekvivalent.",
+    "Nezačínaj vetu spojkou (a, ale, lebo) ak to nie je nutné.",
+    "Vyhni sa pasívnym konštrukciám kde to ide — prefer aktívne vety.",
+    "Čísla a percentá ponechaj číslicami (40, 100%, 3.14).",
+    "Gaming/grafické pojmy NEPRELEKÁŠ: 'engine'/'engines' (nie 'motor'), 'shader'/'shaders', 'rendering', 'voxel', 'pathfinding', 'framerate', 'raycasting'.",
+    "Slovo 'era' prekladaj ako 'éra' (nie 'error'). Slovo 'went from' prekladaj ako 'prešiel od' (nie 'prestal')."
+  ],
+  "domain_context": "Toto je preklad SQL/databázového tutoriálu pre slovenský voiceover. Inštruktor vysvetľuje SQL funkcie na prácu s NULL hodnotami: ISNULL, IS NULL, IS NOT NULL, COALESCE, NULLIF. Cieľové publikum: slovensky hovoriaci databázoví vývojári a analytici.",
+  "known_issues": [
+    "Segmenty s CPS < 7.0 (text_cps) sú zámerné pauzy v origináli — nepridávaj obsah.",
+    "Chatterbox nevysloví SQL správne pri fonetickom prepise — vždy ponechaj 'SQL'.",
+    "Ak je EN text veľmi krátky pre dlhý slot (napr. 5 slov pre 10s), mierne rozviň prirodzene."
+  ]
+}

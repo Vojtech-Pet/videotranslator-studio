@@ -1,0 +1,70 @@
+wing: videotranslator_studio
+rooms:
+- name: backend
+  description: Files from models/
+  keywords:
+  - backend
+  - models
+- name: scripts
+  description: Files from scripts/
+  keywords:
+  - scripts
+  - scripts
+- name: prompts
+  description: Files from prompts/
+  keywords:
+  - prompts
+  - prompts
+- name: src
+  description: Files from src/
+  keywords:
+  - src
+  - src
+- name: output
+  description: Files from output/
+  keywords:
+  - output
+  - output
+- name: temp
+  description: Files from temp/
+  keywords:
+  - temp
+  - temp
+- name: work
+  description: Files from work/
+  keywords:
+  - work
+  - work
+- name: memory
+  description: Files from memory/
+  keywords:
+  - memory
+  - memory
+- name: mini_level11
+  description: Files from mini_level11/
+  keywords:
+  - mini_level11
+  - mini_level11
+- name: voices
+  description: Files from voices/
+  keywords:
+  - voices
+  - voices
+- name: languages
+  description: Files from languages/
+  keywords:
+  - languages
+  - languages
+- name: tmp_audio_check
+  description: Files from tmp_audio_check/
+  keywords:
+  - tmp_audio_check
+  - tmp_audio_check
+- name: input
+  description: Files from input/
+  keywords:
+  - input
+  - input
+- name: general
+  description: Files that don't fit other rooms
+  keywords: []

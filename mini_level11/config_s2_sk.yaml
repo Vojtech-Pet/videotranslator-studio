@@ -1,0 +1,22 @@
+dataset:
+  train_manifest: level17_train_pack/train.jsonl
+  val_manifest: level17_train_pack/val.jsonl
+
+audio:
+  sample_rate: 44100
+
+training:
+  batch_size: 4
+  grad_accum: 4
+  epochs: 3
+
+optimizer:
+  lr: 1e-5
+
+logging:
+  eval_steps: 500
+  save_steps: 1000
+
+model:
+  freeze_text_encoder: false
+  freeze_audio_encoder: true
